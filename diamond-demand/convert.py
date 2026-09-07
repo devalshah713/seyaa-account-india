@@ -143,17 +143,41 @@ def as_date(raw):
 
 
 def collect(rows, header_rn, colmap):
-    items, warnings = [], []
+    """Read the request rows below the header.
+
+    Manufacturing writes the design number **once** and leaves it blank on the further
+    sizes for that same design — see rows 11-14 and 16-20 of the 2026-09-02 file. Those
+    continuation rows carry only a size and a pcs count. Dropping them silently
+    under-orders the demand, so they are attributed to the design above them.
+    """
+    items, warnings, carried, carried_rows = [], [], None, {}
     for rn in sorted(rows):
         if rn <= header_rn:
             continue
         rec = {field: rows[rn].get(col) for col, field in colmap.items()}
         if not any(rec.get(f) for f in REQUIRED):
             continue
+
+        if not rec.get("design_no") and rec.get("size") and rec.get("pcs"):
+            if carried is None:
+                sys.exit(
+                    f"Row {rn} carries a size and pcs but no design number, and no row "
+                    "above it carries one either, so it cannot be attributed.\n"
+                    "Stop and ask mfg. A size sent against the wrong design number is "
+                    "worse than a late demand."
+                )
+            for field in ("design_no", "shape", "bag", "remark", "req_date"):
+                if not rec.get(field):
+                    rec[field] = carried[field]
+            carried_rows.setdefault(carried["design_no"], []).append(rn)
+        else:
+            carried = None
+
         missing = [f for f in REQUIRED if not rec.get(f)]
         if missing:
             warnings.append(f"row {rn}: blank {', '.join(missing)} — row skipped, ask mfg")
             continue
+
         raw_shape = norm(rec["shape"])
         shape = SHAPE_SPELLINGS.get(raw_shape)
         if shape is None:
@@ -162,19 +186,20 @@ def collect(rows, header_rn, colmap):
                 f"row {rn}: shape '{rec['shape']}' is not in SHAPE_SPELLINGS — sent through "
                 "unchanged. Confirm the spelling before the demand goes out."
             )
-        items.append(
-            {
-                "row": rn,
-                "design_no": str(rec["design_no"]).strip(),
-                "shape": shape,
-                "size": as_size(rec["size"]),
-                "pcs": as_pcs(rec["pcs"]),
-                "bag": rec.get("bag"),
-                "remark": rec.get("remark"),
-                "req_date": as_date(rec["req_date"]) if rec.get("req_date") else None,
-            }
-        )
-    return items, warnings
+        rec = {
+            "row": rn,
+            "design_no": str(rec["design_no"]).strip(),
+            "shape": shape,
+            "size": as_size(rec["size"]),
+            "pcs": as_pcs(rec["pcs"]),
+            "bag": rec.get("bag"),
+            "remark": rec.get("remark"),
+            "req_date": as_date(rec["req_date"]) if rec.get("req_date") else None,
+        }
+        items.append(rec)
+        carried = rec if carried is None else carried
+
+    return items, warnings, carried_rows
 
 
 def render(items, demand_type, quality):
@@ -209,7 +234,7 @@ def main():
 
     rows = read_sheet(args.xlsx)
     header_rn, colmap = find_header(rows)
-    items, warnings = collect(rows, header_rn, colmap)
+    items, warnings, carried_rows = collect(rows, header_rn, colmap)
     if not items:
         sys.exit("No usable request rows below the header. Nothing demanded.")
 
@@ -228,6 +253,12 @@ def main():
         "are supplied by the operator, not read from the workbook. Confirm both.",
         file=sys.stderr,
     )
+    for design_no, rns in carried_rows.items():
+        print(
+            f"-- CARRIED: row(s) {', '.join(str(r) for r in rns)} had no design number "
+            f"and were read as further sizes for {design_no}.",
+            file=sys.stderr,
+        )
     for w in warnings:
         print(f"-- WARNING: {w}", file=sys.stderr)
 
