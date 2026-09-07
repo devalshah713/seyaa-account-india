@@ -61,6 +61,13 @@ is worse than no bot, because it trains everyone to skim past the real ones.
 
 ## Before you rely on it
 
+**This repository is public.** Anyone can read it. Work logs are about to contain
+employee names, client names, invoice numbers, amounts, GSTINs and PANs — none of which
+belongs on the public internet, and some of which you are obliged to keep confidential.
+**Make the repository private before a single real log is filed.** GitHub → Settings →
+General → Danger Zone → Change visibility. Note that anything already pushed while public
+should be treated as disclosed, even after the switch.
+
 **`team/checklists/accounting-india.md` carries an unverified banner.** Every rate,
 threshold and due date in it was written from general knowledge and has *not* been checked
 against a current notification. GST slabs were restructured in September 2025 and TDS
@@ -98,8 +105,18 @@ none of the domain knowledge is baked into them.
 
 ## Scheduled run
 
-A Routine runs `/daily-review` automatically each evening. To change the time, list your
-routines and update the cron — it is stored against your account, not in this repo.
+A Routine runs the panel automatically at **20:00 IST, Monday to Saturday**
+(`30 14 * * 1-6` UTC). It starts a fresh session, runs `/daily-review` for the current
+IST date, commits the report back to this branch, and sends a push notification with the
+*Fix today* list.
+
+It is deliberately quiet when there is nothing to do: if no logs were filed, or only the
+test fixture is present, it reports that in one line and stops rather than manufacturing
+findings.
+
+The Routine lives against your Claude account, not in this repo. Ask Claude to
+"list my routines" to change the time, pause it, or delete it — it is named
+**Seyaa — nightly work review**.
 
 ---
 
