@@ -31,6 +31,21 @@ team:
     joined: 2023-06-15
     watch_for: []
 
+  - id: india-stock-auditor
+    name: India Stock Sheet Auditor (A/C INDIA OLD/NEW SHEET)
+    role: Stock sheet auditor
+    handles: [india stock sheet NEW, india stock sheet OLD, price list, multi dia entry]
+    reviewer: example-partner        # standards via Head of Accountants; flags go to Deval
+    joined: 2026-09-07
+    watch_for:
+      - "diamond price hardcoded as =M*250 / =M*27000 instead of a Price List VLOOKUP"
+      - "Multi Product Code left blank while a diamond price is already filled in"
+      - "gold price pointed at the wrong karat rate cell"
+    notes: >
+      Audit only, never edits. Runs at 12:00 and 17:00 IST on weekdays over rows new or
+      changed since the last run. Silent when clean. Rules in
+      team/checklists/india-stock-sheet.md; engine in stock-audit/audit.py.
+
   - id: example-partner
     name: Example Partner
     role: Partner

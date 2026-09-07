@@ -19,6 +19,35 @@ it is not fixed. It runs on demand, and once a day on its own.
 
 `/daily-review` writes `reports/<date>-daily-review.md` and prints the *Fix today* list.
 
+## The India stock sheet auditor
+
+A second, different job also lives here: `stock-auditor` watches the two India stock
+Google Sheets and flags entry and formula errors before they reach a manufacturer's pay
+run or a customer's price.
+
+```bash
+/stock-audit            # NEW sheet, only rows changed since the last run
+/stock-audit old        # OLD sheet
+/stock-audit both --full   # complete re-audit of everything
+```
+
+It is **read-only** and never edits either sheet. It reports stock # plus the exact cell:
+
+| Stock # | Cell | Problem |
+|---|---|---|
+| S1708C/S1709 | V1279 | Multi diamond price ($) hardcoded `=M1279*250` — must VLOOKUP the Price List |
+
+The locked rules are in `team/checklists/india-stock-sheet.md`; the deterministic engine
+that applies them is `stock-audit/audit.py`. Column positions are resolved by **header
+text**, not by letter, so the same rules run against NEW and OLD despite OLD's shifted
+columns.
+
+Findings from the day it was built are in `reports/2026-09-07-india-stock-backlog.md`
+(232 on NEW, 3364 on OLD — the historical backlog). The watermark in
+`stock-audit/state/` is seeded past that, so routine runs report only what changes next.
+**That state must stay committed** — the container is wiped between runs, and without it
+every check re-reports the whole backlog.
+
 ## All commands
 
 | Command | Does |
