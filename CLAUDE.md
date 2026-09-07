@@ -13,6 +13,7 @@ department does.
 | `team/checklists/` | The rules the bots audit against. **This is the only place domain rules live.** Edit these, not the agents. |
 | `work-logs/YYYY-MM-DD/<employee-id>.md` | One log per employee per day. Format in `work-logs/TEMPLATE.md`. |
 | `reports/` | Bot output. One consolidated report per day, plus weekly summaries. |
+| `diamond-demand/` | Converts a mfg diamond request `.xlsx` into the fixed demand for the diamond department. Format locked in `team/checklists/diamond-demand.md`. |
 | `.claude/agents/` | The review bots. |
 | `.claude/commands/` | Slash commands that run them. |
 

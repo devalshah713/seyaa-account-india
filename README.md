@@ -48,6 +48,36 @@ Findings from the day it was built are in `reports/2026-09-07-india-stock-backlo
 **That state must stay committed** — the container is wiped between runs, and without it
 every check re-reports the whole backlog.
 
+## Diamond demand from a mfg request
+
+Manufacturing sends a diamond request `.xlsx`; the diamond department gets a demand in one
+fixed format. `/diamond-demand <file.xlsx>` does the conversion:
+
+```
+DIAMOND DEMAND
+
+ADD ON
+CVD
+EMERALD
+
+6.05*4.10 MM - 1 PCS
+
+SN-BR-AMF-BZ-091
+```
+
+The format is locked in `team/checklists/diamond-demand.md`; `diamond-demand/convert.py`
+implements it with the standard library only — no `pip install`, no connector, no network.
+Columns are resolved by **header label**, so a re-ordered file still converts and a
+re-labelled one stops instead of guessing.
+
+One block per design number per shape, always. Two shapes on one design are two blocks,
+never one block with two shape lines — that is what keeps a size from being read against
+the wrong design number.
+
+`ADD ON` and `CVD` are in no column of the request. The script defaults to them and prints
+a `NOT IN FILE` line every run; confirm both before a demand goes out. Every demand sent is
+kept under `diamond-demand/demands/` as the record.
+
 ## All commands
 
 | Command | Does |
@@ -56,6 +86,8 @@ every check re-reports the whole backlog.
 | `/review-employee <id> [date]` | Quick review of one person, printed, no file written |
 | `/daily-review [date]` | Full panel over everyone, writes the consolidated report |
 | `/weekly-summary [start] [end]` | Repeating mistakes and systemic gaps across a range |
+| `/stock-audit [new\|old\|both] [--full]` | Audits the India stock sheets against the locked pricing rules |
+| `/diamond-demand <file.xlsx>` | Turns a mfg diamond request into the fixed demand for the diamond department |
 
 ## The bots
 
