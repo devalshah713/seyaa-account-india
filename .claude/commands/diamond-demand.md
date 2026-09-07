@@ -21,15 +21,19 @@ department.
 
    It uses the standard library only — no `pip install`, no Google Drive, no network.
 
-3. **Relay the demand text exactly as printed.** No preamble, no summary, no reformatting,
-   no markdown fence around it if it is going to be pasted onward. The block is the
-   deliverable.
+3. **Relay the demand text exactly as printed, and nothing else in the same breath.**
+   Deval pastes this straight into a WhatsApp group, so it must be plain, copyable text —
+   no preamble above it, no summary below it inside the same block, no reformatting, no
+   bullets, no bold. The block is the deliverable; everything else is commentary.
 
-4. Then, separately, surface every line the script wrote to stderr:
-   - the `NOT IN FILE` line — `ADD ON` and `CVD` are operator-supplied, so say which
-     values were used and ask for confirmation if this file gives no evidence for them;
-   - any `WARNING` — an unrecognised shape spelling or a row skipped for a blank field.
+4. Then, **below the block**, surface only what needs him:
+   - any `WARNING` — an unrecognised shape spelling, or a row skipped for a blank field.
      A skipped row is a question for mfg, never something to fill in yourself.
+   - `CVD` if it is still unconfirmed in the checklist, asked **once** and then dropped.
+
+   `ADD ON` is confirmed standing (checklist, 2026-09-07) — do not re-ask it. If nothing
+   needs him, say nothing. He gets these every day; a message that is only the block is
+   the good outcome, not an incomplete one.
 
 5. Commit the saved demand under `diamond-demand/demands/`. It is the record of what was
    asked for, and it is what a later dispute is settled against.

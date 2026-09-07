@@ -84,19 +84,36 @@ through unchanged with a warning — that warning means *ask*, not *ignore*.
 `2.50x1.80 mm` → `2.50*1.80 MM`. Separator becomes `*`, unit becomes a trailing ` MM`,
 digits are never touched. A size with no unit gets ` MM` appended.
 
+## Where the message goes
+
+**Deval pastes it into a WhatsApp group.** That fixes two things:
+
+- The output is **plain text**, paste-ready. No markdown, no code fence, no bullets, no
+  bold. What the script prints is what goes in the group.
+- Give him the block **on its own**, so he can copy it without picking up anything else.
+  Warnings and questions go **below** it, separately — never mixed into the block and
+  never in the middle of it.
+
+Watch item, not yet observed: WhatsApp reads `*text*` as bold. Our size separator is `*`
+(`6.05*4.10 MM`). It should be safe, because WhatsApp only opens bold at a word boundary
+and ours always follows a digit — but this has not been seen on a real multi-size message
+yet. **If any part of a demand ever arrives bold in the group, switch the separator to
+`x` in `as_size()` and record it here.**
+
 ## What is NOT in the file
 
-`ADD ON` and `CVD` appear in no column of the request. They are supplied by the operator
-and default to `ADD ON` / `CVD` in the script, which prints a `NOT IN FILE` line on every
-run. **Confirm both before the demand goes out.** For the 2026-09-07 file the evidence for
-`ADD ON` is circumstantial only — the filename says `Rerequest` and `REMARK` says
-`EXTRA SET..`. That is a reason to ask, not a reason to assume.
+Neither `ADD ON` nor `CVD` appears in any column of the request. Both are supplied by the
+script, which prints a `NOT IN FILE` line on every run.
+
+- **`ADD ON` — confirmed by Deval, 2026-09-07.** The files he sends are add-on diamond
+  requests, so `ADD ON` is the standing type. Use `--type` only if he says otherwise on a
+  specific file. Do not ask about it again.
+- **`CVD` — still unconfirmed.** Ask once, then stop asking; raise it again only if a
+  file carries something that contradicts CVD.
 
 ## Open questions for Deval
 
 1. Is `CVD` always the diamond type, or does a natural-diamond demand use a different
    line? If it varies, what in the incoming file tells us which?
-2. Is `ADD ON` determined by the operator, or should it be read from `REMARK` /
-   the filename? If a rule exists, it goes here and into the script.
-3. Should `BAG`, `SUB DESIGN NO` or `REQ.DATE` ever appear in the demand? They are
+2. Should `BAG`, `SUB DESIGN NO` or `REQ.DATE` ever appear in the demand? They are
    dropped today because the given format has no line for them.
