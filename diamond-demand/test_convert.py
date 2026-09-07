@@ -109,6 +109,10 @@ ROUND
 
 SN-RG-SL-CHU-021
 
+----------------------------------------
+
+DIAMOND DEMAND
+
 ADD ON
 CVD
 ROUND
@@ -148,7 +152,20 @@ check("a relabelled file stops instead of guessing",
 code, out, err = run([HEADER,
                       req("D-1", "ROUND", "1.00 MM", "2"),
                       req("D-1", "PEAR", "5.00*3.00 MM", "1")])
-check("two shapes on one design give two blocks", out.count("D-1") == 2 and out.count("ROUND") == 1, out)
+check("two shapes on one design give two messages",
+      out.count("DIAMOND DEMAND") == 2 and out.count("D-1") == 2 and out.count("ROUND") == 1, out)
+
+# Each message must stand alone — Deval sends them to the group one at a time.
+code, out, err = run([HEADER,
+                      req("D-1", "ROUND", "1.00 MM", "2"),
+                      req("D-2", "PEAR", "5.00*3.00 MM", "1"),
+                      req("D-3", "OVAL", "6.00*4.00 MM", "3")])
+parts = [p.strip() for p in out.split("-" * 40)]
+check("one self-contained message per design", len(parts) == 3
+      and all(p.startswith("DIAMOND DEMAND") for p in parts)
+      and [p.splitlines()[-1] for p in parts] == ["D-1", "D-2", "D-3"], out)
+check("the separator is never inside a message",
+      all("-" * 40 not in p for p in parts), out)
 
 # --- the operator lines -------------------------------------------------------------
 code, out, err = run([HEADER, req("D-1", "ROUND", "1.00 MM", "2")], "--quality", "natural")

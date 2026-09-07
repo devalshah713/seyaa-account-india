@@ -21,10 +21,13 @@ department.
 
    It uses the standard library only — no `pip install`, no Google Drive, no network.
 
-3. **Relay the demand text exactly as printed, and nothing else in the same breath.**
-   Deval pastes this straight into a WhatsApp group, so it must be plain, copyable text —
-   no preamble above it, no summary below it inside the same block, no reformatting, no
-   bullets, no bold. The block is the deliverable; everything else is commentary.
+3. **Relay each message in its own fenced block, in order.** The script separates
+   messages with a line of 40 dashes — split on it and give one fence per message, never
+   several designs in one fence. Deval pastes them into a WhatsApp group one at a time,
+   so each must be plain, copyable text: no preamble inside the fence, no summary inside
+   it, no reformatting, no bullets, no bold, and never the dashes themselves.
+
+   Twenty-five messages means twenty-five fences. That is correct, not excessive.
 
 4. Then, **below the block**, surface only what needs him:
    - any `WARNING` — an unrecognised shape spelling, or a row skipped for a blank field.

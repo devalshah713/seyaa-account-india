@@ -37,14 +37,23 @@ Line by line:
 | | blank | |
 | last | Design number | `S DARSHAN DESIGN NO` |
 
-## One block per design number per shape
+## One message per design number per shape
 
-Two shapes on one design produce **two blocks**, not one block with two shape lines. Two
-sizes of the same shape on the same design produce **two size lines in one block**. Blocks
-are separated by a single blank line; `DIAMOND DEMAND` appears once, at the top.
+**Each design gets its own WhatsApp message**, carrying its own `DIAMOND DEMAND` header
+and standing entirely on its own. Deval sends them to the group one at a time — that is
+what the sample above is: a complete message for a single design.
 
-The rule exists so that no size can be read against the wrong design number. Do not
-"tidy" it by merging blocks.
+Two shapes on one design produce **two messages**. Two sizes of the same shape on the
+same design produce **two size lines inside one message**.
+
+Never merge designs into one message. Two reasons, both learned the hard way:
+
+- He copies a whole message at a time. A merged message cannot be copied in halves.
+- A size sitting under the wrong design number is the mistake this entire file exists to
+  prevent.
+
+In stdout and in the saved record, messages are divided by a line of 40 dashes. **The
+dashes are a divider, never part of a message.** Do not paste them.
 
 ## Incoming column map
 
@@ -136,9 +145,10 @@ went out, not as a current demand.
   Warnings and questions go **below** it, separately — never mixed into the block and
   never in the middle of it.
 
-One message per request file. Do not merge two files into one demand — the diamond
-department settles against the mfg request, and a merged message cannot be traced back
-to one.
+Give him **one fenced block per message**, in order, so each is a single copy target.
+Do not group several designs into one fence to save space — that is exactly the thing he
+asked to be rid of on 2026-09-07, when 25 designs arrived as three long blocks and were
+"quite difficult to understand".
 
 Watch item, not yet observed: WhatsApp reads `*text*` as bold. Our size separator is `*`
 (`6.05*4.10 MM`). It should be safe, because WhatsApp only opens bold at a word boundary
