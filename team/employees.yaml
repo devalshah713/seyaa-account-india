@@ -1,0 +1,49 @@
+# Seyaa Account India — team roster
+#
+# The bots read this to know who works here, what each person is responsible for,
+# and what to watch for. REPLACE THE EXAMPLE ENTRIES BELOW with your actual team.
+#
+# Fields:
+#   id         lowercase-hyphenated, must match the work-log filename
+#   name       display name
+#   role       used to calibrate severity — a junior's slip is a training signal,
+#              the same slip by the person who signs off is a process failure
+#   handles    work types this person owns; bots apply the matching checklist sections
+#   reviewer   employee id of whoever signs off their work ("none" for partners)
+#   joined     YYYY-MM-DD, used to weigh experience
+#   watch_for  recurring mistakes. pattern-analyst appends here — you can edit freely.
+#              Keep this specific: "GST rate on freight lines", not "careless".
+
+team:
+  - id: example-junior
+    name: Example Junior Accountant
+    role: Junior Accountant
+    handles: [purchase entries, vendor invoices, bank reconciliation]
+    reviewer: example-senior
+    joined: 2026-04-01
+    watch_for: []
+
+  - id: example-senior
+    name: Example Senior Accountant
+    role: Senior Accountant
+    handles: [GST returns, TDS, client ledgers, month-end close]
+    reviewer: example-partner
+    joined: 2023-06-15
+    watch_for: []
+
+  - id: example-partner
+    name: Example Partner
+    role: Partner
+    handles: [sign-off, client relationships, statutory filings]
+    reviewer: none
+    joined: 2019-01-01
+    watch_for: []
+
+# Which checklists apply to everyone, in order of authority.
+checklists:
+  - team/checklists/general-work.md
+  - team/checklists/accounting-india.md
+
+# Optional. Days the office is closed — deadline-tracker will not count these as
+# working days when it measures how long something has been stuck.
+holidays: []
