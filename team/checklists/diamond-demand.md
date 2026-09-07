@@ -66,7 +66,8 @@ not kept here — mfg sends it each time, and the demand we sent back is the rec
 | J | `REMARK` | read, not printed |
 | K | `REQ.DATE` | read, reported to the operator, not printed |
 
-Row 1 carries the mfg party (`ANIL EXPORTS DIAMOND CHANGING`). Not printed.
+Row 1 carries the mfg party (`ANIL EXPORTS DIAMOND CHANGING`). Not printed. Some files
+carry a second sheet, `REPORTS..`; only the first sheet is read.
 
 The header row is found **by these labels**, never by row number. If the labels change,
 the script stops rather than guessing — that stop is correct, do not work around it.
@@ -79,10 +80,51 @@ Incoming files misspell shapes. The mapping lives in `SHAPE_SPELLINGS` in
 **Only add a spelling you have actually seen on a file.** An unknown spelling is passed
 through unchanged with a warning — that warning means *ask*, not *ignore*.
 
+Seen but **not** yet confirmed, so currently passed through as written:
+
+- `MQ` — on the 2026-09-02 and 2026-09-03 files, on designs whose own codes carry `MQ`
+  (`SN-RG-MQ-ETERNITY-0.50PT-078`, `SN-BR-TN-MQ-0.40PT-006`). Almost certainly marquise.
+  Add `"MQ": "MARQUISE"` once Deval confirms the diamond department wants the full word.
+
 ## Size normalisation
 
 `2.50x1.80 mm` → `2.50*1.80 MM`. Separator becomes `*`, unit becomes a trailing ` MM`,
 digits are never touched. A size with no unit gets ` MM` appended.
+
+## Continuation rows — the one that bit
+
+Mfg writes the design number **once** and leaves column A blank on the further sizes for
+that same design. Those rows carry only `DIA SIZE` and `DIA PCS`.
+
+```
+SN-RG-SL-CHU-021 | 26/P/1519 | ROUND | 0.90 MM | 48
+                 |           |       | 1.00 MM | 20   <- same design
+                 |           |       | 1.20 MM | 22   <- same design
+```
+
+On 2026-09-07 the converter dropped every such row and would have under-ordered a live
+demand by **122 pieces**. Nothing looked wrong — the message was just short. The fix
+attributes a design-number-less row to the design above it; a continuation row with no
+design above it **stops the run** rather than guessing.
+
+`diamond-demand/test_convert.py` guards this. Run it after any change to the converter:
+
+```
+python3 diamond-demand/test_convert.py
+```
+
+**Always reconcile before sending**: total `DIA PCS` on the sheet must equal the total
+across the `- N PCS` lines in the message, and the row counts must match too.
+
+## Demand file naming
+
+`diamond-demand/demands/<REQ.DATE>-<party>-bag-<first bag number>.txt` — request date
+first, so the folder sorts by when mfg asked, not when we happened to convert.
+
+`2026-09-07-anil-exports-cin-3378.txt` predates this convention. It was built from a copy
+of the bag-1938 request that reached us carrying **one** of its nine rows, and is
+superseded by `2026-09-02-anil-exports-bag-1938.txt`. It is kept as the record of what
+went out, not as a current demand.
 
 ## Where the message goes
 
@@ -93,6 +135,10 @@ digits are never touched. A size with no unit gets ` MM` appended.
 - Give him the block **on its own**, so he can copy it without picking up anything else.
   Warnings and questions go **below** it, separately — never mixed into the block and
   never in the middle of it.
+
+One message per request file. Do not merge two files into one demand — the diamond
+department settles against the mfg request, and a merged message cannot be traced back
+to one.
 
 Watch item, not yet observed: WhatsApp reads `*text*` as bold. Our size separator is `*`
 (`6.05*4.10 MM`). It should be safe, because WhatsApp only opens bold at a word boundary
@@ -115,5 +161,9 @@ script, which prints a `NOT IN FILE` line on every run.
 
 1. Is `CVD` always the diamond type, or does a natural-diamond demand use a different
    line? If it varies, what in the incoming file tells us which?
-2. Should `BAG`, `SUB DESIGN NO` or `REQ.DATE` ever appear in the demand? They are
+2. Should `MQ` be sent as `MARQUISE`? See *Shape spellings*.
+3. `ONLY SEMPLE` arrived in the design-number column on the 2026-09-03 file (bag
+   `26/P/2077`, 42 pcs of 2.70 MM round). Sent through as written. Should a sample
+   request carry a different line, or is the bag number enough for the department?
+4. Should `BAG`, `SUB DESIGN NO` or `REQ.DATE` ever appear in the demand? They are
    dropped today because the given format has no line for them.
