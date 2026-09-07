@@ -8,6 +8,10 @@ MQ
 
 SN-BR-TN-MQ-0.40PT-006
 
+----------------------------------------
+
+DIAMOND DEMAND
+
 ADD ON
 CVD
 MQ
@@ -15,6 +19,10 @@ MQ
 7.75*3.75 MM - 1 PCS
 
 SN-BR-TN-MQ-0.40PT-008
+
+----------------------------------------
+
+DIAMOND DEMAND
 
 ADD ON
 CVD

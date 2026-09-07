@@ -8,6 +8,10 @@ EMERALD
 
 SN-BR-AMF-BZ-091
 
+----------------------------------------
+
+DIAMOND DEMAND
+
 ADD ON
 CVD
 EMERALD
@@ -15,6 +19,10 @@ EMERALD
 5.25*3.75 MM - 1 PCS
 
 SN-BR-TN-EM-50PTS-008
+
+----------------------------------------
+
+DIAMOND DEMAND
 
 ADD ON
 CVD
@@ -24,6 +32,10 @@ ROUND
 
 SN-RG-SL-EM-33
 
+----------------------------------------
+
+DIAMOND DEMAND
+
 ADD ON
 CVD
 ROUND
@@ -31,6 +43,10 @@ ROUND
 1.30 MM - 2 PCS
 
 S1205C
+
+----------------------------------------
+
+DIAMOND DEMAND
 
 ADD ON
 CVD
@@ -40,6 +56,10 @@ MQ
 
 SN-RG-MQ-ETERNITY-0.50PT-078
 
+----------------------------------------
+
+DIAMOND DEMAND
+
 ADD ON
 CVD
 OVAL
@@ -48,6 +68,10 @@ OVAL
 
 SN-RG-OV-ETERNITY-1CT-142
 
+----------------------------------------
+
+DIAMOND DEMAND
+
 ADD ON
 CVD
 PEAR
@@ -55,6 +79,10 @@ PEAR
 6*3.75 MM - 1 PCS
 
 SN-BR-BZ-PE-0.30PT-011
+
+----------------------------------------
+
+DIAMOND DEMAND
 
 ADD ON
 CVD
@@ -67,6 +95,10 @@ ROUND
 1.70 MM - 2 PCS
 
 SN-RG-SL-CHU-021
+
+----------------------------------------
+
+DIAMOND DEMAND
 
 ADD ON
 CVD

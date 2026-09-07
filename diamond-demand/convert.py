@@ -202,8 +202,17 @@ def collect(rows, header_rn, colmap):
     return items, warnings, carried_rows
 
 
+SEPARATOR = "-" * 40
+
+
 def render(items, demand_type, quality):
-    """One block per design number per shape, so no size can land on the wrong design."""
+    """One self-contained message per design number per shape.
+
+    Deval sends these to the diamond department one at a time, so each message repeats
+    the `DIAMOND DEMAND` header and stands on its own. Never merge two designs into one
+    message: he cannot copy half a block, and a size read against the wrong design
+    number is the mistake this whole file exists to prevent.
+    """
     blocks, order = {}, []
     for it in items:
         key = (it["design_no"], it["shape"])
@@ -214,14 +223,13 @@ def render(items, demand_type, quality):
         if line not in blocks[key]:
             blocks[key].append(line)
 
-    out = ["DIAMOND DEMAND", ""]
-    for i, (design_no, shape) in enumerate(order):
-        if i:
-            out.append("")
-        out += [demand_type, quality, shape, ""]
-        out += blocks[(design_no, shape)]
-        out += ["", design_no]
-    return "\n".join(out) + "\n"
+    messages = []
+    for design_no, shape in order:
+        lines = ["DIAMOND DEMAND", "", demand_type, quality, shape, ""]
+        lines += blocks[(design_no, shape)]
+        lines += ["", design_no]
+        messages.append("\n".join(lines) + "\n")
+    return messages
 
 
 def main():
@@ -238,14 +246,18 @@ def main():
     if not items:
         sys.exit("No usable request rows below the header. Nothing demanded.")
 
-    text = render(items, norm(args.type), norm(args.quality))
+    messages = render(items, norm(args.type), norm(args.quality))
+    # SEPARATOR marks where one WhatsApp message ends and the next begins. It is never
+    # part of a message — do not paste it.
+    text = f"\n{SEPARATOR}\n\n".join(messages)
     sys.stdout.write(text)
     if args.out:
         with open(args.out, "w") as fh:
             fh.write(text)
 
     dates = sorted({i["req_date"] for i in items if i["req_date"]})
-    print(f"\n-- {len(items)} request row(s), {args.xlsx}", file=sys.stderr)
+    print(f"\n-- {len(messages)} message(s) from {len(items)} request row(s), "
+          f"{args.xlsx}", file=sys.stderr)
     if dates:
         print(f"-- REQ.DATE on file: {', '.join(dates)}", file=sys.stderr)
     print(
