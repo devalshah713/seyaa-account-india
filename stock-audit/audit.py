@@ -291,6 +291,18 @@ class Audit:
             )
         return wsf, wsv, cols, hr
 
+    def srs_on_date(self, want):
+        """Stock numbers whose DATE column equals `want`, as the export renders it."""
+        wsf, wsv, cols, hr = self.rows_of(self.stock_name)
+        out = {}
+        for r in range(hr + 1, wsf.max_row + 1):
+            sr = wsv.cell(r, cols["sr"]).value
+            if blank(sr) or "date" not in cols:
+                continue
+            if as_date(wsv.cell(r, cols["date"]).value) == want:
+                out[sr_text(sr)] = r
+        return out
+
     def audit_stock(self, only_srs=None):
         wsf, wsv, cols, hr = self.rows_of(self.stock_name)
         self.stock_cols = cols
@@ -687,6 +699,11 @@ def main():
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--no-save", action="store_true",
                     help="do not update the state file (dry run)")
+    ap.add_argument("--date",
+                    help="audit only rows whose DATE column is this YYYY-MM-DD, as the "
+                         "export renders it")
+    ap.add_argument("--passfail", action="store_true",
+                    help="list every row in scope as PASS or FAIL, not just the failures")
     a = ap.parse_args()
 
     audit = Audit(a.xlsx, a.label)
@@ -701,6 +718,14 @@ def main():
     changed = {sr for sr, h in now.items() if prev.get(sr) != h}
     new_srs = {sr for sr in now if sr not in prev}
     only = None if (a.full or not prev) else changed
+    scope_rows = None
+    if a.date:
+        want = datetime.strptime(a.date, "%Y-%m-%d").date()
+        scope_rows = audit.srs_on_date(want)
+        only = set(scope_rows)
+        if not only:
+            print(f"No rows carry DATE {a.date}.")
+            return
 
     audit.check_vlookup_caps()
     audit.audit_stock(only)
@@ -714,7 +739,10 @@ def main():
     if not a.full:
         audit.questions = [q for q in audit.questions if qhash(q) not in prev_standing]
 
-    scope = ("full sheet" if only is None else
+    if a.date:
+        scope_desc = f"{len(only)} row(s) dated {a.date}"
+    scope = (f"{len(only)} row(s) dated {a.date}" if a.date else
+             "full sheet" if only is None else
              f"{len(changed)} row(s) new or changed since {load_state(a.label).get('checked_at', '?')}")
     result = {
         "label": a.label,
@@ -733,6 +761,37 @@ def main():
 
     if a.json:
         print(json.dumps(result, indent=2, ensure_ascii=False))
+        return
+
+    if a.passfail:
+        def owns(scope_sr, finding_stock):
+            # a Multi finding may be reported under a compound Sr, "S1708C/S1709"
+            return scope_sr == finding_stock or scope_sr in str(finding_stock).split("/")
+
+        targets = scope_rows if scope_rows is not None else {s_: None for s_ in sorted(only or now)}
+        by_sr = {}
+        for s_ in targets:
+            by_sr[s_] = [f for f in audit.findings if owns(s_, f["stock"])]
+        npass = sum(1 for v in by_sr.values() if not v)
+        print(f"# India stock audit — pass/fail — {a.label}")
+        print(f"Scope: {scope}.")
+        print(f"**{npass} PASS · {len(by_sr) - npass} FAIL** out of {len(by_sr)} rows.\n")
+        print("| Stock # | Row | Result | Problems |")
+        print("|---|---|---|---|")
+        for s_ in sorted(by_sr, key=lambda x: (targets.get(x) or 0, x)):
+            fs = by_sr[s_]
+            row = targets.get(s_) or ""
+            if not fs:
+                print(f"| {s_} | {row} | PASS | — |")
+            else:
+                cells = "; ".join(f"{f['cell']}: {f['problem']}" for f in fs)
+                print(f"| {s_} | {row} | **FAIL ({len(fs)})** | {cells} |")
+        if audit.questions:
+            print(f"\n## Questions for Deval\n")
+            print("| Stock # | Cell | Question |")
+            print("|---|---|---|")
+            for q in audit.questions:
+                print(f"| {q['stock']} | {q['cell']} | {q['question']} |")
         return
 
     print(f"# India stock audit — {a.label}")
