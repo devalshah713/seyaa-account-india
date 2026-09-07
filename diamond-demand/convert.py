@@ -3,8 +3,12 @@
 Turn a diamond request .xlsx from manufacturing into the fixed demand format we send
 to the diamond department.
 
-    python3 diamond-demand/convert.py <file.xlsx> [--type "ADD ON"] [--quality CVD]
+    python3 diamond-demand/convert.py <file.xlsx> [more.xlsx ...]
+                                      [--type "ADD ON"] [--quality CVD]
                                       [--out diamond-demand/demands/<name>.txt]
+
+Several files at once produce ONE run of demands, in the order given, divided by a rule.
+Deval copies the whole thing in one go and sends it to the group.
 
 Reads values only, with the standard library. openpyxl is not used on purpose: this
 workbook carries no formulas, and pip is not reliably reachable from a session container.
@@ -234,45 +238,47 @@ def render(items, demand_type, quality):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("xlsx")
+    ap.add_argument("xlsx", nargs="+", help="one or more request workbooks")
     ap.add_argument("--type", default="ADD ON", help='demand type line, default "ADD ON"')
     ap.add_argument("--quality", default="CVD", help="diamond type line, default CVD")
     ap.add_argument("--out", help="also write the demand text to this path")
     args = ap.parse_args()
 
-    rows = read_sheet(args.xlsx)
-    header_rn, colmap = find_header(rows)
-    items, warnings, carried_rows = collect(rows, header_rn, colmap)
-    if not items:
-        sys.exit("No usable request rows below the header. Nothing demanded.")
+    all_messages, notes = [], []
+    for path in args.xlsx:
+        rows = read_sheet(path)
+        header_rn, colmap = find_header(rows)
+        items, warnings, carried_rows = collect(rows, header_rn, colmap)
+        if not items:
+            sys.exit(f"{path}: no usable request rows below the header. Nothing demanded.")
 
-    messages = render(items, norm(args.type), norm(args.quality))
-    # SEPARATOR marks where one WhatsApp message ends and the next begins. It is never
-    # part of a message — do not paste it.
-    text = f"\n{SEPARATOR}\n\n".join(messages)
+        messages = render(items, norm(args.type), norm(args.quality))
+        all_messages += messages
+
+        dates = sorted({i["req_date"] for i in items if i["req_date"]})
+        notes.append(f"-- {len(messages)} demand(s) from {len(items)} row(s), {path}"
+                     + (f" (REQ.DATE {', '.join(dates)})" if dates else ""))
+        for design_no, rns in carried_rows.items():
+            notes.append(f"-- CARRIED: row(s) {', '.join(str(r) for r in rns)} had no design "
+                         f"number and were read as further sizes for {design_no}.")
+        notes += [f"-- WARNING: {w}" for w in warnings]
+
+    # SEPARATOR divides one demand from the next. It is part of the message Deval sends —
+    # it is what lets the diamond department see where one demand ends and the next begins.
+    text = f"\n{SEPARATOR}\n\n".join(all_messages)
     sys.stdout.write(text)
     if args.out:
         with open(args.out, "w") as fh:
             fh.write(text)
 
-    dates = sorted({i["req_date"] for i in items if i["req_date"]})
-    print(f"\n-- {len(messages)} message(s) from {len(items)} request row(s), "
-          f"{args.xlsx}", file=sys.stderr)
-    if dates:
-        print(f"-- REQ.DATE on file: {', '.join(dates)}", file=sys.stderr)
+    print(f"\n-- {len(all_messages)} demand(s) across {len(args.xlsx)} file(s)", file=sys.stderr)
     print(
         f'-- NOT IN FILE: demand type "{norm(args.type)}" and quality "{norm(args.quality)}" '
         "are supplied by the operator, not read from the workbook. Confirm both.",
         file=sys.stderr,
     )
-    for design_no, rns in carried_rows.items():
-        print(
-            f"-- CARRIED: row(s) {', '.join(str(r) for r in rns)} had no design number "
-            f"and were read as further sizes for {design_no}.",
-            file=sys.stderr,
-        )
-    for w in warnings:
-        print(f"-- WARNING: {w}", file=sys.stderr)
+    for n in notes:
+        print(n, file=sys.stderr)
 
 
 if __name__ == "__main__":

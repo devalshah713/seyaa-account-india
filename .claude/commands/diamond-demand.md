@@ -1,6 +1,6 @@
 ---
 description: Turn a diamond request xlsx from mfg into the fixed diamond demand format
-argument-hint: "<path-to.xlsx> [--type \"ADD ON\"] [--quality CVD]"
+argument-hint: "<path-to.xlsx> [more.xlsx ...] [--type \"ADD ON\"] [--quality CVD]"
 allowed-tools: Read, Write, Bash
 ---
 
@@ -15,19 +15,21 @@ department.
 2. Run the converter:
 
    ```
-   python3 diamond-demand/convert.py "$1" $2 $3 \
+   python3 diamond-demand/convert.py "$1" [more.xlsx ...] \
        --out diamond-demand/demands/$(date +%F)-<party-or-file>.txt
    ```
 
    It uses the standard library only — no `pip install`, no Google Drive, no network.
 
-3. **Relay each message in its own fenced block, in order.** The script separates
-   messages with a line of 40 dashes — split on it and give one fence per message, never
-   several designs in one fence. Deval pastes them into a WhatsApp group one at a time,
-   so each must be plain, copyable text: no preamble inside the fence, no summary inside
-   it, no reformatting, no bullets, no bold, and never the dashes themselves.
+3. **Relay the whole run as one fenced block**, exactly as printed, dividers and all.
+   One copy, one paste. Never split it into a fence per demand and never merge two
+   designs into a single demand — the dashes are the divider and they go out with it.
+   Inside the fence: no preamble, no summary, no reformatting, no bullets, no bold.
 
-   Twenty-five messages means twenty-five fences. That is correct, not excessive.
+   Twenty-five demands is still one fence.
+
+   Several files in one go: pass them all in one command so they come back as one run,
+   in the order he sent them. Do not produce one block per file.
 
 4. Then, **below the block**, surface only what needs him:
    - any `WARNING` — an unrecognised shape spelling, or a row skipped for a blank field.

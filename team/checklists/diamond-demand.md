@@ -37,23 +37,23 @@ Line by line:
 | | blank | |
 | last | Design number | `S DARSHAN DESIGN NO` |
 
-## One message per design number per shape
+## One demand per design number per shape
 
-**Each design gets its own WhatsApp message**, carrying its own `DIAMOND DEMAND` header
-and standing entirely on its own. Deval sends them to the group one at a time — that is
-what the sample above is: a complete message for a single design.
+**Each design gets its own demand**, carrying its own `DIAMOND DEMAND` header and
+standing on its own — that is exactly what the sample above is. The demands then run
+together into one message Deval copies and pastes in one go.
 
-Two shapes on one design produce **two messages**. Two sizes of the same shape on the
-same design produce **two size lines inside one message**.
+Two shapes on one design produce **two demands**. Two sizes of the same shape on the
+same design produce **two size lines inside one demand**.
 
-Never merge designs into one message. Two reasons, both learned the hard way:
+Never fold two designs into a single demand. A size sitting under the wrong design
+number is the mistake this entire file exists to prevent — one shape line and one design
+number per demand, always.
 
-- He copies a whole message at a time. A merged message cannot be copied in halves.
-- A size sitting under the wrong design number is the mistake this entire file exists to
-  prevent.
-
-In stdout and in the saved record, messages are divided by a line of 40 dashes. **The
-dashes are a divider, never part of a message.** Do not paste them.
+Demands are divided by a line of 40 dashes, and **the divider goes out with them** — it
+is what lets the diamond department see where one demand ends and the next begins. Deval
+copies the whole run in one go, so the dashes are part of what he sends, not scaffolding
+to strip.
 
 ## Incoming column map
 
@@ -128,7 +128,9 @@ across the `- N PCS` lines in the message, and the row counts must match too.
 ## Demand file naming
 
 `diamond-demand/demands/<REQ.DATE>-<party>-bag-<first bag number>.txt` — request date
-first, so the folder sorts by when mfg asked, not when we happened to convert.
+first, so the folder sorts by when mfg asked, not when we happened to convert. A run
+built from several files at once is named for the day it went out
+(`2026-09-07-anil-exports-combined.txt`).
 
 `2026-09-07-anil-exports-cin-3378.txt` predates this convention. It was built from a copy
 of the bag-1938 request that reached us carrying **one** of its nine rows, and is
@@ -145,10 +147,19 @@ went out, not as a current demand.
   Warnings and questions go **below** it, separately — never mixed into the block and
   never in the middle of it.
 
-Give him **one fenced block per message**, in order, so each is a single copy target.
-Do not group several designs into one fence to save space — that is exactly the thing he
-asked to be rid of on 2026-09-07, when 25 designs arrived as three long blocks and were
-"quite difficult to understand".
+Give him **one fenced block containing every demand**, dividers included — one copy, one
+paste. Settled on 2026-09-07 after two wrong turns: first three long blocks with several
+designs merged into each ("quite difficult to understand"), then 25 separate fences ("too
+many"). What he wants is one copyable run with a line between demands.
+
+Several request files at once go into **one** run, in the order he sent them:
+
+```
+python3 diamond-demand/convert.py a.xlsx b.xlsx c.xlsx --out diamond-demand/demands/<name>.txt
+```
+
+Do not split by source file. The design number identifies the work; which workbook it
+arrived in is our bookkeeping, not the department's.
 
 Watch item, not yet observed: WhatsApp reads `*text*` as bold. Our size separator is `*`
 (`6.05*4.10 MM`). It should be safe, because WhatsApp only opens bold at a word boundary
