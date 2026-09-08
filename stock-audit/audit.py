@@ -757,7 +757,18 @@ def main():
     }
 
     if not a.no_save:
-        result["state_file"] = save_state(a.label, now, sorted(set(all_standing)))
+        # Do NOT let the watermark move past a row that is still failing. Otherwise a
+        # reported-but-unfixed error is never mentioned again, and the batch quietly
+        # stops nagging about exactly the rows that need chasing. Failing rows keep a
+        # sentinel fingerprint so they resurface every run until someone edits them.
+        failed = set()
+        for f in audit.findings:
+            st = str(f["stock"])
+            failed.add(st)
+            failed.update(x.strip() for x in st.split("/"))
+        keep = {sr: ("OPEN-FINDING" if sr in failed else h) for sr, h in now.items()}
+        result["held_open"] = sorted(sr for sr in now if sr in failed)
+        result["state_file"] = save_state(a.label, keep, sorted(set(all_standing)))
 
     if a.json:
         print(json.dumps(result, indent=2, ensure_ascii=False))
