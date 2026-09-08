@@ -195,6 +195,47 @@ error in the sheet.
 
 ---
 
+## Letter pendants — root cause, found 2026-09-08
+
+Four rows with a blank or hardcoded product code are all **letter pendants**, and they
+share one cause: **column R (SHAPE) holds the pendant's letter, or `NA`, instead of a
+diamond shape.** With no valid shape, no product code can be selected, and the price then
+gets hardcoded to fill the gap.
+
+| Stock # | Design | Shape (R) | Code (U) |
+|---|---|---|---|
+| S1708C | A LETTER PENDANT | `A` | MIX |
+| S1710C | A LETTER PENDANT | `A` | MIX |
+| S1060C | S LETTER PENDANT | `NA` | blank |
+| S1688C | A LETTER PENDANT | `A` | blank — approved 2026-09-08 while unpriced |
+
+Every fancy stone that passes carries a real shape and therefore a real code — `MQ`→
+`MQ : 01`, `EM`→`EM : 02`, `OV`→`OV : 01`. The codes exist; they are unreachable while the
+shape column holds a letter.
+
+**`DIA : 01` (Price List row 68) is the code for a large single stone: $250/ct, ₹18,200/ct.**
+That is the code the hardcoded rows were reaching for.
+
+### The hardcode is half right
+
+`=M*250` matches `DIA : 01` exactly on the dollar side. `=M*27000` does not match anything
+— **₹27,000/ct appears nowhere in the Price List**, and the highest rupee rate in the fancy
+list is ₹21,000 (`OV : 04`). On S1060C that overstates the diamond value by **₹45,408** on
+one 5.16 ct piece.
+
+When you see `=M*250` paired with `=M*27000`, the dollar figure is probably fine and the
+rupee figure is probably invented. Check the rupee side first.
+
+## Approved exceptions
+
+Sign-offs live in `stock-audit/approvals.yaml`, matched on stock number **and** cell. An
+approval is a decision about one cell on one row — never a rule change. If a whole class
+of rows should stop failing, change the rule in this file instead.
+
+An approval can carry `void_if: priced`, which makes it lapse the moment the row gains a
+price. A blank product code is cosmetic on an unpriced row and drives the sell price on a
+priced one, so the sign-off should not survive that change.
+
 ## Open with Deval — do not invent an answer
 
 These are unresolved. The auditor reports them as **questions**, never as errors, and does
@@ -207,10 +248,13 @@ not flood the batch with them.
 3. **OLD Sr scheme.** OLD starts around 4 and then mixes in `A0xxx` codes. Is that intended?
 4. **VLOOKUP row-68 cap.** See the standing risk above. Extend the ranges, or is row 68 a
    deliberate boundary?
-5. **Compound Multi Sr.** Is `S1708C/S1709` — one Multi group covering two stock numbers —
+5. **MELT and the product-code rule.** Put to Deval on 2026-09-08 and **not** carved out —
+   S0204 stays open. A melted piece still fails the "product code compulsory when TDW > 0"
+   rule. Re-raise if it recurs on other MELT rows.
+6. **Compound Multi Sr.** Is `S1708C/S1709` — one Multi group covering two stock numbers —
    a deliberate convention, or two entries that should have been separated? It is handled
    either way, but the reconciliation is only meaningful if it is intentional.
-6. **Is rule M5 meant to be exact?** `A0946`, a reference row you called clean, has a Multi
+7. **Is rule M5 meant to be exact?** `A0946`, a reference row you called clean, has a Multi
    date of 2026-10-03 against a STOCK date of 2026-09-03. Either the dates genuinely differ
    and the row is clean on other grounds, or M5 is stricter than intended. Until this is
    settled, date mismatches are reported but should be treated as low confidence.

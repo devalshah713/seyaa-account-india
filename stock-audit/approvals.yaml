@@ -1,0 +1,34 @@
+# Approved exceptions
+#
+# Rows Deval has signed off despite failing a locked rule. The auditor suppresses a
+# finding ONLY when the stock number and the cell both match an entry here.
+#
+# An approval is a decision about one cell on one row, never a rule change. If a whole
+# class of rows should stop failing, change the rule in
+# team/checklists/india-stock-sheet.md instead — that is the single place rules live.
+#
+# void_if: an approval that stops applying when the row changes in a way that makes the
+# original reasoning untrue. Supported:
+#   priced   the approval lapses the moment the row carries a price, because a blank or
+#            wrong product code is harmless on an unpriced row and costs money on a
+#            priced one.
+
+approvals:
+  - stock: S1688C
+    cell: U1689
+    match: "Product Code blank"
+    approved_by: Deval
+    approved_on: 2026-09-08
+    void_if: priced
+    reason: >
+      Letter pendant. Column R holds the pendant letter "A" rather than a diamond shape,
+      so no product code can be selected. Accepted as-is while the row is unpriced.
+      The approval lapses automatically if the row is ever priced — at that point the
+      blank code stops being cosmetic and starts driving the sell price.
+
+# Not approved, deliberately, as at 2026-09-08:
+#   S1060C U1061/V1061/Z1061 — the rupee cell is 45,408 above the DIA : 01 rate and
+#     27,000/ct exists nowhere in the Price List. Fix is one cell: put DIA : 01 in U1061
+#     and restore both VLOOKUPs. The dollar side already agrees with DIA : 01.
+#   S0204 U205 — MELT row. Deval did not carve MELT out of the product-code rule, so it
+#     stays open.

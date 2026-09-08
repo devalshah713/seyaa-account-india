@@ -27,6 +27,7 @@ except ImportError:
     sys.exit("openpyxl is not installed. Run: pip install openpyxl")
 
 STATE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "state")
+APPROVALS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "approvals.yaml")
 
 # ---------------------------------------------------------------- column map
 
@@ -290,6 +291,20 @@ class Audit:
                 f"The sheet layout may have changed — ask Deval before auditing."
             )
         return wsf, wsv, cols, hr
+
+    def priced_srs(self):
+        """Stock numbers whose STOCK row carries any price value or formula."""
+        wsf, wsv, cols, hr = self.rows_of(self.stock_name)
+        out = set()
+        money = [f for f in ("dia_usd", "gold_usd", "labor_usd", "total_usd",
+                             "dia_inr", "gold_inr", "labor_inr", "total_inr") if f in cols]
+        for r in range(hr + 1, wsf.max_row + 1):
+            sr = wsv.cell(r, cols["sr"]).value
+            if blank(sr):
+                continue
+            if any(not blank(wsf.cell(r, cols[f]).value) for f in money):
+                out.add(sr_text(sr))
+        return out
 
     def srs_on_date(self, want):
         """Stock numbers whose DATE column equals `want`, as the export renders it."""
@@ -670,6 +685,55 @@ def fingerprint(path, sheet):
     return out
 
 
+def load_approvals():
+    """Signed-off exceptions. Returns (entries, warning).
+
+    If the file cannot be read, return NO approvals and a warning. Failing open —
+    suppressing nothing — is the safe direction: an over-reported finding wastes a
+    minute, a silently suppressed one reaches a manufacturer's pay run.
+    """
+    if not os.path.exists(APPROVALS):
+        return [], None
+    try:
+        import yaml
+    except ImportError:
+        return [], ("PyYAML is not installed, so approvals.yaml could not be read. "
+                    "Nothing is being suppressed — approved rows will appear as "
+                    "failures until `pip install pyyaml` is run.")
+    try:
+        with open(APPROVALS) as fh:
+            data = yaml.safe_load(fh) or {}
+        return data.get("approvals") or [], None
+    except Exception as exc:
+        return [], f"approvals.yaml could not be parsed ({exc}). Nothing is suppressed."
+
+
+def apply_approvals(findings, approvals, priced_srs):
+    """Split findings into (still active, suppressed by an approval)."""
+    active, suppressed = [], []
+    for f in findings:
+        hit = None
+        stocks = {str(f["stock"])} | {x.strip() for x in str(f["stock"]).split("/")}
+        for a in approvals:
+            if str(a.get("stock", "")).strip() not in stocks:
+                continue
+            if str(a.get("cell", "")).strip() != str(f["cell"]).strip():
+                continue
+            m = a.get("match")
+            if m and str(m).lower() not in str(f["problem"]).lower():
+                continue
+            if a.get("void_if") == "priced" and str(a.get("stock", "")).strip() in priced_srs:
+                # the row gained a price, so the reasoning behind the approval no longer holds
+                f = dict(f, problem=f["problem"] +
+                         "  [approval lapsed: this row is now priced]")
+                hit = None
+                break
+            hit = a
+            break
+        (suppressed if hit else active).append(f if not hit else dict(f, approval=hit))
+    return active, suppressed
+
+
 def load_state(label):
     p = os.path.join(STATE_DIR, f"{label}.json")
     if os.path.exists(p):
@@ -702,6 +766,8 @@ def main():
     ap.add_argument("--date",
                     help="audit only rows whose DATE column is this YYYY-MM-DD, as the "
                          "export renders it")
+    ap.add_argument("--show-approved", action="store_true",
+                    help="also list findings suppressed by an approval")
     ap.add_argument("--passfail", action="store_true",
                     help="list every row in scope as PASS or FAIL, not just the failures")
     a = ap.parse_args()
@@ -732,6 +798,14 @@ def main():
     audit.audit_multi(only)
     audit.cross_check_mix(only)
 
+    approvals, appr_warning = load_approvals()
+    suppressed = []
+    if approvals:
+        audit.findings, suppressed = apply_approvals(
+            audit.findings, approvals, audit.priced_srs())
+    if appr_warning:
+        print(f"> WARNING: {appr_warning}\n")
+
     def qhash(q):
         return hashlib.md5(f"{q['stock']}|{q['cell']}|{q['question']}".encode()).hexdigest()[:12]
 
@@ -754,6 +828,7 @@ def main():
         "rows_changed": sorted(changed - new_srs),
         "findings": audit.findings,
         "questions": audit.questions,
+        "suppressed_by_approval": suppressed,
     }
 
     if not a.no_save:
@@ -797,6 +872,14 @@ def main():
             else:
                 cells = "; ".join(f"{f['cell']}: {f['problem']}" for f in fs)
                 print(f"| {s_} | {row} | **FAIL ({len(fs)})** | {cells} |")
+        if a.show_approved and suppressed:
+            print(f"\n## Suppressed by approval ({len(suppressed)})\n")
+            print("| Stock # | Cell | Problem | Approved |")
+            print("|---|---|---|---|")
+            for f in suppressed:
+                ap_ = f.get("approval", {})
+                print(f"| {f['stock']} | {f['cell']} | {f['problem']} | "
+                      f"{ap_.get('approved_by','?')} {ap_.get('approved_on','')} |")
         if audit.questions:
             print(f"\n## Questions for Deval\n")
             print("| Stock # | Cell | Question |")
