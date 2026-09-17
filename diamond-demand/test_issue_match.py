@@ -65,6 +65,7 @@ check("mfg's EMARLD matches EMERALD", im.shape_key("EMARLD") == im.shape_key("EM
 check("different shapes stay different", im.shape_key("PEAR") != im.shape_key("ROUND"))
 
 # --- classify ----------------------------------------------------------------------
+fake = {}
 rec = {"sheet": "S", "row": 1, "design": "SN-RG-SL-EM-19", "sub": "ADD ON  19",
        "shape": im.shape_key("ROUND"), "size": im.size_key("1.3 MM"),
        "raw_size": "1.3 MM", "pcs": "6.0"}
