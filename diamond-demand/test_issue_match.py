@@ -86,6 +86,30 @@ sieve = dict(same, size="+2.5-3")
 check("a sieve-range request is never dropped as issued",
       im.classify(sieve, fake)[0] != "ISSUED")
 
+# --- metal codes and sub ranges ----------------------------------------------------
+# The Jangad inserts WG/YG mid-design and records runs of sub-designs as one row.
+# Treating those as non-matches reported 87 of 88 rows "no fresh issue found".
+check("a metal code inserted mid-design does not block a match",
+      overlap(("SN-BR-TN-MQ-0.40PT-YG-006", "006"), ("SN-BR-TN-MQ-0.40PT-006", "006")))
+check("a karat and country suffix does not block a match",
+      overlap(("SN-BR-SL-4CT-WG-002", "002"), ("SN-BR-SL-4CT-002-WG-14KT-USA", "002")))
+check("a sub-design range covers a sub inside it",
+      overlap(("SN-BR-SL-4CT-WG-002-011", None), ("SN-BR-SL-4CT-005-WG-14KT-USA", "005")))
+check("a sub-design range does not cover a sub outside it",
+      not overlap(("SN-BR-SL-4CT-WG-002-011", None), ("SN-BR-SL-4CT-030-YG", "030")))
+check("a bracketed range is read as a range",
+      overlap(("SN-BR-RD-3CT-YG-(001-006)", None), ("SN-BR-RD-3CT-004", "004")))
+check("a bracketed range does not reach an unrelated sub",
+      not overlap(("SN-BR-RD-3CT-YG-(001-006)", None), ("SN-BR-RD-3CT-030", "030")))
+check("two far-apart numbers are not a range",
+      not overlap(("SN-X-1938-2007", None), ("SN-X-1970", "1970")))
+check("a bare stock code still matches itself",
+      overlap(("S1667C", "0"), ("S1667C", "REPAIRE")))
+check("the EM-33 regression still holds after the rewrite",
+      not overlap(("SN-RG-SL-EM-20", "ADD ON  20"), ("SN-RG-SL-EM-33", "33")))
+check("a metal code does not collapse two different subs",
+      not overlap(("SN-RG-SL-CUH-WG-020", "ADD ON  020"), ("SN-RG-SL-CUH-YG-37", "37")))
+
 print()
 if FAILED:
     print(f"{len(FAILED)} FAILED: {', '.join(FAILED)}")

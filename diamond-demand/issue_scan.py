@@ -34,8 +34,11 @@ def header_of(rows):
     return None, {}
 
 def flat(path='issue.xlsx'):
-    """Yield dicts with sheet, row, design, sub, shape, size, pcs — design and sub
-    carried down, as these sheets leave them blank on continuation rows."""
+    """Yield dicts with sheet, row, design, sub, shape, size, pcs, quality — design
+    and sub carried down, as these sheets leave them blank on continuation rows.
+
+    `quality` is the Cvd/Hpht column: which kind of stone was actually issued. An
+    add-on must be demanded in the same kind as the fresh issue of that design."""
     for sheet, rows in load(path).items():
         hrn, labels = header_of(rows)
         if hrn is None:
@@ -55,6 +58,7 @@ def flat(path='issue.xlsx'):
         c_shape = col('DIAMOND SHAPE')
         c_size = col('DIAMOND SIZE')
         c_pcs = col('DIAMOND PCS')
+        c_qty = col('CVD/HPHT', 'CVD / HPHT', 'CVD')
         last_design = last_sub = None
         for rn in sorted(rows):
             if rn <= hrn:
@@ -74,4 +78,5 @@ def flat(path='issue.xlsx'):
                 'shape': r.get(c_shape) if c_shape else None,
                 'size': r.get(c_size) if c_size else None,
                 'pcs': r.get(c_pcs) if c_pcs else None,
+                'quality': r.get(c_qty) if c_qty else None,
             }

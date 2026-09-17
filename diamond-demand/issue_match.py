@@ -67,41 +67,125 @@ def clean(text):
     return re.sub(r"\s+", " ", t).strip()
 
 
+# Metal and market codes the Jangad inserts mid-design and mfg leaves out:
+# ours "SN-BR-TN-MQ-0.40PT-006" is their "SN-BR-TN-MQ-0.40PT-YG-006".
+# RG is NOT here — it is the ring prefix in SN-RG-..., not rose gold.
+NOISE = {"WG", "YG", "PG", "9KT", "10KT", "14KT", "18KT", "22KT", "USA", "UK"}
+MAX_RANGE = 60          # "002-011" is a sub range; "1938-2007" is not
+
+
+def parse_design(design):
+    """-> (base, [trailing numeric tokens]). Strips metal codes and brackets."""
+    d = clean(design).replace("(", "-").replace(")", "-")
+    toks = [t for t in re.split(r"[-\s]+", d) if t]
+    toks = [t for t in toks if t not in NOISE]
+    nums = []
+    while len(toks) > 1 and re.fullmatch(r"\d+", toks[-1]):
+        nums.insert(0, toks.pop())
+    return "-".join(toks), nums
+
+
+def subs_of(nums):
+    """Sub-design numbers a design string covers.
+
+    The Jangad records one row for a run of sub-designs: `SN-BR-SL-4CT-WG-002-011`
+    is subs 002 through 011, and `SN-BR-RD-3CT-YG-(001-006)` is 001 through 006.
+    Two ascending numbers a reasonable distance apart are read as that range.
+    """
+    vals = [int(n) for n in nums]
+    if len(vals) == 2 and vals[0] < vals[1] <= vals[0] + MAX_RANGE:
+        return set(range(vals[0], vals[1] + 1))
+    return set(vals)
+
+
 def identities(design, sub):
     """Candidate identities for one row. A match on any one counts.
 
     Every identity MUST carry the sub-design discriminator. An earlier version also
-    emitted the bare family (`SN-RG-SL-EM` from `SN-RG-SL-EM-20`), which made
-    SN-RG-SL-EM-33 match the add-on issued for EM-20 and would have dropped 19
-    stones that were never issued. Never emit a family-only key.
+    emitted the bare design family (`SN-RG-SL-EM` out of `SN-RG-SL-EM-20`), which
+    made SN-RG-SL-EM-33 match the add-on issued for EM-20 and would have dropped 19
+    stones that were never issued. Never emit a family-only key when a sub is known.
     """
     out = set()
-    d = clean(design)
-    if not d:
+    raw = clean(design)
+    if not raw:
         return out
 
     # A repair row carries its stock code in brackets: "... (ST NO S1205C)"
-    for code in re.findall(r"\(([^)]*)\)", d):
+    for code in re.findall(r"\(([^)]*)\)", raw):
         for tok in re.findall(r"[A-Z]*\d+[A-Z]*", code):
-            if len(tok) >= 4:
+            if len(tok) >= 4 and not re.fullmatch(r"\d{1,3}", tok):
                 out.add(tok)
-    d = clean(re.sub(r"\([^)]*\)", "", d))
-    out.add(d)
+    base, nums = parse_design(re.sub(r"\(ST\s*NO[^)]*\)", "", raw))
 
-    # Zero-padding differs between the two sheets: SN-BR-AMF-CL-003 vs -CL-3.
-    m = re.match(r"(.*)-0*(\d+)$", d)
-    if m and m.group(1):
-        out.add(f"{m.group(1)}-{m.group(2)}")
-
+    subs = subs_of(nums)
     s = clean(ADDON.sub("", sub or ""))
-    if s:
-        bare = s.lstrip("0") or "0"
-        # Only when the design does not already end with that sub number, so the
-        # sub is never dropped from the identity.
-        if not re.search(r"-0*" + re.escape(bare) + r"$", d):
-            out.add(f"{d}-{s}")
-            out.add(f"{d}-{bare}")
+    if re.fullmatch(r"\d+", s):
+        subs.add(int(s))
+
+    out |= {f"{base}#{n}" for n in subs}
+    if not subs:
+        out.add(base)                      # no sub known anywhere
+    if "-" not in base and base:
+        out.add(base)                      # a bare stock code: S1667C, S0020C, 1990
     return {i for i in out if i}
+
+
+QUALITIES = {"CVD", "HPHT"}
+
+
+def fresh_index(issue_xlsx):
+    """{identity: [fresh row, ...]} for every NON add-on row in the issue workbook.
+
+    Used to answer "was this design issued CVD or HPHT?". The Jangad's Cvd/Hpht
+    column is genuinely mixed — HPHT outnumbers CVD across the workbook — so the
+    quality line on an add-on demand must be read from the fresh issue of that
+    design, never assumed.
+    """
+    index = {}
+    for r in issue_scan.flat(issue_xlsx):
+        if r["sub"] and ADDON.search(str(r["sub"])):
+            continue
+        q = convert.norm(r["quality"] or "")
+        rec = {
+            "sheet": r["sheet"], "row": r["row"],
+            "design": r["design"], "sub": r["sub"], "quality": q,
+            "shape": shape_key(r["shape"]), "size": size_key(r["size"]),
+            "raw_size": r["size"], "pcs": r["pcs"],
+        }
+        for ident in identities(r["design"], r["sub"]):
+            index.setdefault(ident, []).append(rec)
+    return index
+
+
+def quality_for(item, fresh):
+    """-> (quality, basis). Reads CVD/HPHT off the fresh issue of the same design.
+
+    A precision ladder, best evidence first. Never guesses: if the fresh rows
+    disagree, or there are none, the caller is told so and must ask rather than
+    send a demand that names the wrong kind of stone.
+    """
+    cands = [rec for ident in identities(item["design_no"], item["sub"])
+             for rec in fresh.get(ident, [])]
+    cands = [c for c in cands if c["quality"] in QUALITIES]
+    if not cands:
+        return None, "no fresh issue found for this design"
+
+    want_shape, want_size = shape_key(item["shape"]), size_key(item["size"])
+
+    exact = [c for c in cands if c["shape"] == want_shape
+             and c["size"] is not None and c["size"] == want_size]
+    same_shape = [c for c in cands if c["shape"] == want_shape]
+    for rung, rows in (("same stone", exact),
+                       ("same shape on this design", same_shape),
+                       ("this design", cands)):
+        if not rows:
+            continue
+        qs = {c["quality"] for c in rows}
+        if len(qs) == 1:
+            return qs.pop(), f"{rung} ({rows[0]['sheet']} r{rows[0]['row']})"
+        return None, f"fresh issue disagrees on {rung}: {'/'.join(sorted(qs))}"
+    return None, "no fresh issue found for this design"
 
 
 def issued_addons(issue_xlsx):
@@ -147,6 +231,30 @@ def classify(item, index):
     return "DIFFERS", cands[0]
 
 
+def build_demand(rows):
+    """Demand blocks with the quality line read per design, not assumed.
+
+    Grouped by design + shape + quality. A design whose stones were issued partly
+    CVD and partly HPHT therefore yields two blocks, which is correct — they are
+    two different demands to the diamond department.
+    """
+    blocks, order = {}, []
+    for item, quality in rows:
+        key = (item["design_no"], item["shape"], quality)
+        if key not in blocks:
+            blocks[key] = []
+            order.append(key)
+        line = f"{item['size']} - {item['pcs']} PCS"
+        if line not in blocks[key]:
+            blocks[key].append(line)
+    out = []
+    for design_no, shape, quality in order:
+        out.append("\n".join(["DIAMOND DEMAND", "", "ADD ON", quality, shape, ""]
+                              + blocks[(design_no, shape, quality)]
+                              + ["", design_no]) + "\n")
+    return out
+
+
 def emit_ledger(issued, path):
     """Write the issued rows as demand blocks, so convert.py --ledger excludes them.
 
@@ -170,6 +278,8 @@ def main():
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
     emit = next((a.split("=", 1)[1] for a in sys.argv[1:]
                  if a.startswith("--emit-ledger=")), None)
+    demand_out = next((a.split("=", 1)[1] for a in sys.argv[1:]
+                       if a.startswith("--emit-demand=")), None)
     if len(args) < 2:
         sys.exit(__doc__)
     sys.argv = [sys.argv[0]] + args
@@ -185,6 +295,27 @@ def main():
     if emit:
         n = emit_ledger(verdicts["ISSUED"], emit)
         print(f"-- wrote {n} issued add-on(s) to {emit}", file=sys.stderr)
+
+    if demand_out:
+        fresh = fresh_index(sys.argv[1])
+        seen, known, unknown = set(), [], []
+        for item, _ in verdicts["NEW"] + verdicts["DIFFERS"]:
+            key = (item["design_no"], item["shape"], item["size"])
+            if key in seen:                      # duplicate file in the drop
+                continue
+            seen.add(key)
+            q, basis = quality_for(item, fresh)
+            (known if q else unknown).append((item, q or basis))
+        blocks = build_demand(known)
+        with open(demand_out, "w") as fh:
+            fh.write(f"\n{convert.SEPARATOR}\n\n".join(blocks))
+        print(f"-- wrote {len(blocks)} demand(s) from {len(known)} row(s) to "
+              f"{demand_out}", file=sys.stderr)
+        print(f"-- {len(unknown)} row(s) have no readable CVD/HPHT and were LEFT OUT:",
+              file=sys.stderr)
+        for item, why in unknown:
+            print(f"   {item['design_no']} | {item['shape']} {item['size']} "
+                  f"x{item['pcs']} | {why}", file=sys.stderr)
 
     for v in ("ISSUED", "DIFFERS", "NEW"):
         print(f"\n### {v} ({len(verdicts[v])})")
