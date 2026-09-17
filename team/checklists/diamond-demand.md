@@ -155,6 +155,74 @@ committed** — if it is lost, every open design gets demanded a second time. Th
 Instructed by Deval on 2026-09-14: *"if any demand is repeated do not put add on demand
 of it."*
 
+## The office Diamond Issue Jangad — the real authority on what is issued
+
+Google Sheet `1IhNZlP3YxM8lVTboyxB2EeJkReGN86ONSHi-buNkE3I`,
+*Diamond Issue Jangad From Office*. 15 tabs, one per party, ~12,600 rows.
+`docs.google.com` is blocked by the execution environment, so the **Google Drive
+connector is the only route** — the export is too big to return inline, so it lands in
+a file and `stock-audit/decode.py` turns it into a real `.xlsx`.
+
+**A demand we sent is not proof the stone was issued.** The Jangad is. Instructed by
+Deval on 2026-09-17: *"if the diamond is already issued then do not make Add on Demand
+here. For rest which are not issued make the diamond demand."* So a stone demanded
+earlier but never issued **is demanded again** — the earlier demand produced nothing.
+
+### Where the ADD ON tag actually lives
+
+Not in a column of its own. It is appended inside **Sub Design No**: `ADD ON`,
+`ADD ON  17`, `002 ADD ON`. 413 such rows across 8 of the 15 tabs.
+
+### Three reasons a plain string compare is useless here
+
+`diamond-demand/issue_match.py` handles each; `test_issue_match.py` guards them.
+
+| | Jangad writes | mfg writes |
+|---|---|---|
+| Size | `1.3 MM` | `1.30 MM` |
+| Shape | `MARQUISE` | `MQ` |
+| Design | `SN-BR-AMF-CL-003`, `SN-RG-RAD-SL-WG-012  (ST NO S1205C)` | `SN-BR-AMF-CL-3`, `S1205C` |
+
+Sizes are compared **as numbers**. Shapes are folded to one spelling **for matching
+only** — the demand text is never rewritten by the matcher. Each row reduces to a set
+of candidate identities (full design, zero-normalised design, design+sub, any
+bracketed stock code) and a match on any one counts.
+
+### Every identity must carry the sub-design number
+
+The first version also emitted the bare family — `SN-RG-SL-EM` out of
+`SN-RG-SL-EM-20` — so `SN-RG-SL-EM-33` matched the add-on issued for EM-20. It
+reported **21 rows issued instead of 5**, and would have dropped 19 stones that were
+never issued. **Never emit a family-only key.** The first test in
+`test_issue_match.py` is exactly this case.
+
+### Verdicts
+
+- `ISSUED` — design, sub, shape and size all match an add-on row. Dropped.
+- `DIFFERS` — design and sub match an issued add-on but the stone is different.
+  **Reported, never dropped**: a different stone on a known design is still needed.
+- `NEW` — demand it.
+
+A sieve-range size (`+2.5-3`) or a blank size can never produce an `ISSUED` verdict,
+so an unparseable size fails towards demanding rather than towards silence.
+
+### Running it
+
+```
+python3 diamond-demand/issue_match.py issue.xlsx <request.xlsx ...> \
+    --emit-ledger=diamond-demand/issued/<date>-issue-jangad-addons.txt
+python3 diamond-demand/convert.py <request.xlsx ...> --ledger diamond-demand/issued \
+    --out diamond-demand/demands/<date>-<party>-not-yet-issued.txt
+```
+
+The emitted ledger carries the **request** side's spelling of design, shape and size,
+so `convert.py`'s string-keyed ledger lands exactly — the numeric matching has already
+happened by then.
+
+**Which ledger to point at matters.** `--ledger diamond-demand/issued` excludes what
+was *issued*; `--ledger diamond-demand/demands` (the default) excludes what was
+*demanded*. When Deval asks for what is not yet issued, it is the former.
+
 ## Demand file naming
 
 `diamond-demand/demands/<REQ.DATE>-<party>-bag-<first bag number>.txt` — request date
