@@ -10,6 +10,9 @@ to the diamond department.
 Several files at once produce ONE run of demands, in the order given, divided by a rule.
 Deval copies the whole thing in one go and sends it to the group.
 
+Anything already demanded in diamond-demand/demands/ is dropped and reported, so the
+same stone is never demanded twice. --no-ledger turns that off.
+
 Reads values only, with the standard library. openpyxl is not used on purpose: this
 workbook carries no formulas, and pip is not reliably reachable from a session container.
 
@@ -17,6 +20,8 @@ The format is locked in team/checklists/diamond-demand.md. Change it there first
 """
 import argparse
 import datetime
+import glob
+import os
 import re
 import sys
 import zipfile
@@ -209,6 +214,32 @@ def collect(rows, header_rn, colmap):
 SEPARATOR = "-" * 40
 
 
+def load_ledger(paths):
+    """Read past demand files into {(design_no, shape, size): [(file, pcs), ...]}.
+
+    Mfg re-sends a design that is still open, so the same stone arrives on request
+    after request. Demanding it again makes the diamond department issue twice.
+    The key deliberately ignores the piece count: a differing count on the same
+    stone is the same demand being raised again, not a second one — but every drop
+    is reported with both counts so a real top-up can be spotted and asked about.
+    """
+    ledger = {}
+    for path in paths:
+        with open(path) as fh:
+            text = fh.read()
+        for block in text.split(SEPARATOR):
+            lines = [l.strip() for l in block.strip().splitlines()]
+            if len(lines) < 7 or lines[0] != "DIAMOND DEMAND":
+                continue
+            shape, design_no = lines[4], lines[-1]
+            for line in lines[5:-1]:
+                m = re.match(r"(.+?) - (\d+) PCS$", line)
+                if m:
+                    key = (design_no, shape, m.group(1))
+                    ledger.setdefault(key, []).append((os.path.basename(path), m.group(2)))
+    return ledger
+
+
 def render(items, demand_type, quality):
     """One self-contained message per design number per shape.
 
@@ -242,7 +273,18 @@ def main():
     ap.add_argument("--type", default="ADD ON", help='demand type line, default "ADD ON"')
     ap.add_argument("--quality", default="CVD", help="diamond type line, default CVD")
     ap.add_argument("--out", help="also write the demand text to this path")
+    ap.add_argument("--ledger", default="diamond-demand/demands",
+                    help="folder of past demands to skip repeats against")
+    ap.add_argument("--no-ledger", action="store_true",
+                    help="demand everything, even what was demanded before")
     args = ap.parse_args()
+
+    ledger, repeats = {}, []
+    if not args.no_ledger:
+        out = os.path.abspath(args.out) if args.out else None
+        past = [p for p in sorted(glob.glob(os.path.join(args.ledger, "*.txt")))
+                if os.path.abspath(p) != out]
+        ledger = load_ledger(past)
 
     all_messages, notes = [], []
     for path in args.xlsx:
@@ -252,16 +294,34 @@ def main():
         if not items:
             sys.exit(f"{path}: no usable request rows below the header. Nothing demanded.")
 
-        messages = render(items, norm(args.type), norm(args.quality))
+        kept = []
+        for it in items:
+            key = (it["design_no"], it["shape"], it["size"])
+            if key in ledger:
+                was = ledger[key][-1]
+                repeats.append(f"{it['design_no']} \u00b7 {it['shape']} \u00b7 {it['size']} "
+                               f"\u2014 {it['pcs']} pcs now, {was[1]} pcs already demanded "
+                               f"on {was[0]} (row {it['row']}, dropped)")
+                continue
+            kept.append(it)
+        if not kept:
+            notes.append(f"-- every row in {path} was already demanded. Nothing new.")
+            continue
+
+        messages = render(kept, norm(args.type), norm(args.quality))
         all_messages += messages
 
-        dates = sorted({i["req_date"] for i in items if i["req_date"]})
-        notes.append(f"-- {len(messages)} demand(s) from {len(items)} row(s), {path}"
+        dates = sorted({i["req_date"] for i in kept if i["req_date"]})
+        notes.append(f"-- {len(messages)} demand(s) from {len(kept)} of {len(items)} row(s), {path}"
                      + (f" (REQ.DATE {', '.join(dates)})" if dates else ""))
         for design_no, rns in carried_rows.items():
             notes.append(f"-- CARRIED: row(s) {', '.join(str(r) for r in rns)} had no design "
                          f"number and were read as further sizes for {design_no}.")
         notes += [f"-- WARNING: {w}" for w in warnings]
+
+    if not all_messages:
+        sys.exit("Nothing to demand: every row was already demanded. "
+                 "Run with --no-ledger to demand them anyway.")
 
     # SEPARATOR divides one demand from the next. It is part of the message Deval sends —
     # it is what lets the diamond department see where one demand ends and the next begins.
@@ -279,6 +339,12 @@ def main():
     )
     for n in notes:
         print(n, file=sys.stderr)
+    for r in repeats:
+        print(f"-- REPEAT: {r}", file=sys.stderr)
+    if repeats:
+        print(f"-- {len(repeats)} row(s) dropped as already demanded. Check the piece "
+              "counts above: a higher count now may be a real top-up, not a repeat.",
+              file=sys.stderr)
 
 
 if __name__ == "__main__":

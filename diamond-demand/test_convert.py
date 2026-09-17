@@ -8,6 +8,7 @@ above — and would have under-ordered a real demand by 122 pieces. Nothing abou
 output looked wrong; it was just short. Keep that test passing.
 """
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -61,6 +62,15 @@ def write_xlsx(path, rows):
 
 
 def run(rows, *args):
+    """Run the converter on a throwaway workbook.
+
+    --no-ledger by default: without it these fixtures would be checked against the
+    real diamond-demand/demands/ folder, and a fixture design that happens to match
+    a demand actually sent would be dropped as a repeat. Tests that want the ledger
+    pass --ledger explicitly.
+    """
+    if "--ledger" not in args:
+        args = ("--no-ledger",) + args
     with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as fh:
         path = fh.name
     try:
@@ -70,6 +80,17 @@ def run(rows, *args):
         return p.returncode, p.stdout, p.stderr
     finally:
         os.unlink(path)
+
+
+def with_ledger(rows, ledger_text, *args):
+    """Run the converter against a ledger folder holding one past demand file."""
+    d = tempfile.mkdtemp()
+    with open(os.path.join(d, "2026-01-01-past.txt"), "w") as fh:
+        fh.write(ledger_text)
+    try:
+        return run(rows, "--ledger", d, *args)
+    finally:
+        shutil.rmtree(d)
 
 
 def req(design, shape, size, pcs):
@@ -166,6 +187,63 @@ check("one self-contained message per design", len(parts) == 3
       and [p.splitlines()[-1] for p in parts] == ["D-1", "D-2", "D-3"], out)
 check("the separator is never inside a message",
       all("-" * 40 not in p for p in parts), out)
+
+# --- the ledger: never demand the same stone twice ----------------------------------
+PAST = """DIAMOND DEMAND
+
+ADD ON
+CVD
+ROUND
+
+1.00 MM - 20 PCS
+1.20 MM - 22 PCS
+
+D-OLD
+
+----------------------------------------
+
+DIAMOND DEMAND
+
+ADD ON
+CVD
+PEAR
+
+5.00*3.00 MM - 2 PCS
+
+D-PEAR
+"""
+
+code, out, err = with_ledger([HEADER,
+                              req("D-OLD", "ROUND", "1.00 MM", "20"),
+                              req("D-NEW", "ROUND", "1.00 MM", "20")], PAST)
+check("a stone already demanded is dropped",
+      code == 0 and "D-OLD" not in out and "D-NEW" in out, out)
+check("the drop is reported as a REPEAT", "REPEAT" in err and "D-OLD" in err, err)
+
+# A different count on the same stone is the same demand raised again, not a new one.
+code, out, err = with_ledger([HEADER, req("D-OLD", "ROUND", "1.00 MM", "19"),
+                              req("D-NEW", "ROUND", "3.00 MM", "1")], PAST)
+check("a differing piece count is still a repeat", "D-OLD" not in out, out)
+check("both counts are reported so a top-up can be spotted",
+      "19 pcs now, 20 pcs already demanded" in err, err)
+
+# Same design, size the ledger has never seen -> genuinely new, must go out.
+code, out, err = with_ledger([HEADER, req("D-OLD", "ROUND", "1.60 MM", "4")], PAST)
+check("an unseen size on a known design still goes out",
+      code == 0 and "1.60 MM - 4 PCS" in out and "D-OLD" in out, out)
+
+# Same design and size but a different shape -> different stone, must go out.
+code, out, err = with_ledger([HEADER, req("D-OLD", "PEAR", "1.00 MM", "2")], PAST)
+check("a different shape on a known design and size still goes out",
+      code == 0 and "D-OLD" in out, out)
+
+code, out, err = with_ledger([HEADER, req("D-OLD", "ROUND", "1.00 MM", "20")], PAST,
+                             "--no-ledger")
+check("--no-ledger demands it anyway", code == 0 and "D-OLD" in out, out)
+
+code, out, err = with_ledger([HEADER, req("D-OLD", "ROUND", "1.00 MM", "20")], PAST)
+check("all rows repeated stops with a clear message, no empty demand",
+      code != 0 and "already demanded" in err and "DIAMOND DEMAND" not in out, err)
 
 # --- the operator lines -------------------------------------------------------------
 code, out, err = run([HEADER, req("D-1", "ROUND", "1.00 MM", "2")], "--quality", "natural")

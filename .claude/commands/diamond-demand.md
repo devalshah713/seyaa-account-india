@@ -32,6 +32,9 @@ department.
    in the order he sent them. Do not produce one block per file.
 
 4. Then, **below the block**, surface only what needs him:
+   - every `REPEAT` — a stone dropped because it was already demanded. Name the design,
+     the size, both piece counts and when the first demand went out. A count that has
+     gone **up** may be a real top-up; say so rather than deciding for him.
    - any `WARNING` — an unrecognised shape spelling, or a row skipped for a blank field.
      A skipped row is a question for mfg, never something to fill in yourself.
    - `CVD` if it is still unconfirmed in the checklist, asked **once** and then dropped.
@@ -41,7 +44,9 @@ department.
    the good outcome, not an incomplete one.
 
 5. Commit the saved demand under `diamond-demand/demands/`. It is the record of what was
-   asked for, and it is what a later dispute is settled against.
+   asked for, it is what a later dispute is settled against, **and it is the ledger the
+   next run checks repeats against.** An uncommitted demand means the next request
+   re-demands every stone in it.
 
 ## Stop conditions
 

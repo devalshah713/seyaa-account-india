@@ -122,8 +122,38 @@ design above it **stops the run** rather than guessing.
 python3 diamond-demand/test_convert.py
 ```
 
-**Always reconcile before sending**: total `DIA PCS` on the sheet must equal the total
-across the `- N PCS` lines in the message, and the row counts must match too.
+**Always reconcile before sending**: sheet rows and total `DIA PCS` must equal the
+message's demand count and total pieces, **after** subtracting anything the ledger
+dropped. Show the arithmetic: `sheet 126 pcs - 21 dropped = 105 in the message`.
+
+## Never demand the same stone twice
+
+Mfg re-sends a design while it is still open, so the same stone arrives on request after
+request. Demanding it again makes the diamond department issue the stone twice.
+
+Every past demand under `diamond-demand/demands/` is the **ledger**. Before a run goes
+out, each row is checked against it and a match is **dropped and reported**. This is on by
+default; `--no-ledger` turns it off.
+
+The key is **design number + shape + size**. The piece count is deliberately *not* part
+of it:
+
+- Same stone, different count → still a repeat, still dropped. The 2026-09-14 file asked
+  19 pcs of `SN-RG-SL-CHU-021` ROUND 1.00 MM where 20 pcs had already gone out on
+  2026-09-02, and `SN-BR-TN-MQ-0.40PT-006` MQ 7.50*3.75 at 1 pc against 3 already sent.
+  Both read as the request being raised again, not a top-up.
+- **Every drop prints both counts.** A count that has gone *up* may be a genuine
+  additional need — surface those to Deval rather than deciding alone.
+
+A size or shape the ledger has never seen on that design is **new** and goes out, even
+when the design number is familiar.
+
+`diamond-demand/demands/` is therefore load-bearing, not an archive. **It must stay
+committed** — if it is lost, every open design gets demanded a second time. The run's own
+`--out` file is excluded from its own ledger, so a re-run is safe.
+
+Instructed by Deval on 2026-09-14: *"if any demand is repeated do not put add on demand
+of it."*
 
 ## Demand file naming
 
@@ -188,3 +218,6 @@ script, which prints a `NOT IN FILE` line on every run.
    request carry a different line, or is the bag number enough for the department?
 4. Should `BAG`, `SUB DESIGN NO` or `REQ.DATE` ever appear in the demand? They are
    dropped today because the given format has no line for them.
+5. When a repeat arrives with a **higher** piece count than went out before, is that a
+   top-up that should be demanded for the difference, or the same request re-raised?
+   Dropped entirely today, and reported.
