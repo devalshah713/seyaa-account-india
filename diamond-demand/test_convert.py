@@ -82,6 +82,24 @@ def run(rows, *args):
         os.unlink(path)
 
 
+def run_files(rowsets, *args):
+    """Run the converter over several workbooks in one command, as a zip drop does."""
+    paths = []
+    try:
+        for rows in rowsets:
+            fh = tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False)
+            fh.close()
+            write_xlsx(fh.name, rows)
+            paths.append(fh.name)
+        args = args if "--ledger" in args else ("--no-ledger",) + args
+        p = subprocess.run([sys.executable, CONVERT, *paths, *args],
+                           capture_output=True, text=True)
+        return p.returncode, p.stdout, p.stderr
+    finally:
+        for path in paths:
+            os.unlink(path)
+
+
 def with_ledger(rows, ledger_text, *args):
     """Run the converter against a ledger folder holding one past demand file."""
     d = tempfile.mkdtemp()
@@ -244,6 +262,28 @@ check("--no-ledger demands it anyway", code == 0 and "D-OLD" in out, out)
 code, out, err = with_ledger([HEADER, req("D-OLD", "ROUND", "1.00 MM", "20")], PAST)
 check("all rows repeated stops with a clear message, no empty demand",
       code != 0 and "already demanded" in err and "DIAMOND DEMAND" not in out, err)
+
+# --- one run must never demand the same stone twice --------------------------------
+# Zips of request files routinely carry byte-identical copies ("... (1).xlsx") and
+# rows that overlap between files. Neither may reach the message twice.
+same = [HEADER, req("D-1", "ROUND", "1.00 MM", "4"), req("D-2", "PEAR", "5.00*3.00 MM", "1")]
+code, out, err = run_files([same, same])
+check("an identical duplicate file adds nothing",
+      code == 0 and out.count("DIAMOND DEMAND") == 2
+      and out.count("D-1") == 1 and out.count("D-2") == 1, out)
+check("the intra-run drop says it came from this run", "already in this run" in err, err)
+
+code, out, err = run_files([[HEADER, req("D-1", "ROUND", "1.00 MM", "4")],
+                            [HEADER, req("D-1", "ROUND", "1.00 MM", "9"),
+                             req("D-3", "OVAL", "6.00*4.00 MM", "2")]])
+check("a row repeated across two files in one run is demanded once",
+      code == 0 and out.count("D-1") == 1 and "D-3" in out
+      and "1.00 MM - 4 PCS" in out and "9 PCS" not in out, out)
+
+# --no-ledger switches off history, never intra-run de-duplication.
+code, out, err = run_files([same, same], "--no-ledger")
+check("--no-ledger still does not duplicate inside one run",
+      out.count("D-1") == 1, out)
 
 # --- the operator lines -------------------------------------------------------------
 code, out, err = run([HEADER, req("D-1", "ROUND", "1.00 MM", "2")], "--quality", "natural")

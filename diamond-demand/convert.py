@@ -279,6 +279,12 @@ def main():
                     help="demand everything, even what was demanded before")
     args = ap.parse_args()
 
+    # run_seen is separate from the ledger on purpose. The ledger is history and
+    # --no-ledger switches it off; sending the same stone twice inside ONE message is
+    # wrong either way, so intra-run de-duplication is never switched off. It matters:
+    # a zip of request files routinely carries byte-identical copies ("... (1).xlsx")
+    # and overlapping rows across files.
+    run_seen = {}
     ledger, repeats = {}, []
     if not args.no_ledger:
         out = os.path.abspath(args.out) if args.out else None
@@ -297,12 +303,19 @@ def main():
         kept = []
         for it in items:
             key = (it["design_no"], it["shape"], it["size"])
+            stone = f"{it['design_no']} \u00b7 {it['shape']} \u00b7 {it['size']}"
+            if key in run_seen:
+                first_file, first_pcs = run_seen[key]
+                repeats.append(f"{stone} \u2014 {it['pcs']} pcs, already in this run at "
+                               f"{first_pcs} pcs from {os.path.basename(first_file)} "
+                               f"(row {it['row']}, dropped)")
+                continue
             if key in ledger:
                 was = ledger[key][-1]
-                repeats.append(f"{it['design_no']} \u00b7 {it['shape']} \u00b7 {it['size']} "
-                               f"\u2014 {it['pcs']} pcs now, {was[1]} pcs already demanded "
-                               f"on {was[0]} (row {it['row']}, dropped)")
+                repeats.append(f"{stone} \u2014 {it['pcs']} pcs now, {was[1]} pcs already "
+                               f"demanded on {was[0]} (row {it['row']}, dropped)")
                 continue
+            run_seen[key] = (path, it["pcs"])
             kept.append(it)
         if not kept:
             notes.append(f"-- every row in {path} was already demanded. Nothing new.")
