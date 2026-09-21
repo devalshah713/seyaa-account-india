@@ -534,6 +534,102 @@ SN-RG-SL-CUH-WG-52
 
 DIAMOND DEMAND
 
+FRESH
+CVD
+ROUND
+
+2.10 MM - 1 PCS
+
+SN-BR-RD-3CT-030-YG-14KT-USA
+
+----------------------------------------
+
+DIAMOND DEMAND
+
+FRESH
+CVD
+ROUND
+
+2.10 MM - 1 PCS
+
+SN-BR-RD-3CT-037-YG-14KT-USA
+
+----------------------------------------
+
+DIAMOND DEMAND
+
+FRESH
+CVD
+EMERALD
+
+5.25*3.75 MM - 1 PCS
+
+SN-BR-TN-EM-50PTS-008
+
+----------------------------------------
+
+DIAMOND DEMAND
+
+FRESH
+CVD
+OVAL
+
+8.35*7.75 MM - 1 PCS
+
+SN-BR-TN-OV-1CT-002
+
+----------------------------------------
+
+DIAMOND DEMAND
+
+FRESH
+CVD
+PEAR
+
+6*3.75 MM - 2 PCS
+
+SN-BR-BZ-PE-0.30PT-011
+
+----------------------------------------
+
+DIAMOND DEMAND
+
+FRESH
+CVD
+MQ
+
+7.50*3.75 MM - 1 PCS
+
+SN-BR-TN-MQ-0.40PT-006
+
+----------------------------------------
+
+DIAMOND DEMAND
+
+FRESH
+CVD
+MQ
+
+7.75*3.75 MM - 1 PCS
+
+SN-BR-TN-MQ-0.40PT-008
+
+----------------------------------------
+
+DIAMOND DEMAND
+
+FRESH
+CVD
+ROUND
+
+1.30 MM - 6 PCS
+
+SN-RG-SL-EM-18
+
+----------------------------------------
+
+DIAMOND DEMAND
+
 ADD ON
 CVD/HPHT ?
 ROUND
@@ -592,3 +688,15 @@ ROUND
 1.00 MM - 19 PCS
 
 SN-RG-SL-CHU-021
+
+----------------------------------------
+
+DIAMOND DEMAND
+
+FRESH
+CVD/HPHT ?
+EMERALD
+
+6.75*4.75 MM - 1 PCS
+
+S1667C

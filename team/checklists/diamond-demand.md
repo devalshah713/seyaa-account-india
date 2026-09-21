@@ -231,6 +231,22 @@ stale copy would have demanded a stone that had since been issued. **Never reuse
 saved copy.** Pull it through the Drive connector, `stock-audit/decode.py` it, then
 match.
 
+## An already-issued add-on is re-raised as FRESH, not dropped
+
+Instructed by Deval on 2026-09-21: *"If already issued then also make them as a fresh
+one."* When mfg asks again for a stone the Jangad shows as already issued, the second
+request is not a second add-on — it is a fresh requirement. Pass
+`--issued-as=FRESH` and those rows go out with `FRESH` on the demand-type line
+instead of `ADD ON`.
+
+That is why the type line is per row, not a single `--type` for the whole run: one
+file yields `ADD ON` blocks and `FRESH` blocks side by side. Blocks are keyed on
+design + shape + quality + **type**, so an add-on and a fresh demand on the same
+design never merge.
+
+Without `--issued-as` the issued rows are still dropped, which is the right default
+when the question is "what is outstanding".
+
 ## When the quality cannot be read
 
 Rows with no readable CVD/HPHT are **left out** by default. Pass

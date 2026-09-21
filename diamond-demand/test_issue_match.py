@@ -110,6 +110,26 @@ check("the EM-33 regression still holds after the rewrite",
 check("a metal code does not collapse two different subs",
       not overlap(("SN-RG-SL-CUH-WG-020", "ADD ON  020"), ("SN-RG-SL-CUH-YG-37", "37")))
 
+# --- the type line is per row: an issued add-on is re-raised as FRESH -------------
+item = {"design_no": "D-1", "shape": "ROUND", "size": "1.30 MM", "pcs": "4"}
+blocks = im.build_demand([(item, "CVD", "ADD ON")])
+check("the type line carries the demand type",
+      blocks[0].splitlines()[2] == "ADD ON" and blocks[0].splitlines()[3] == "CVD",
+      blocks[0])
+
+blocks = im.build_demand([(item, "CVD", "FRESH")])
+check("FRESH replaces ADD ON on the type line",
+      blocks[0].splitlines()[2] == "FRESH" and "ADD ON" not in blocks[0], blocks[0])
+
+other = dict(item, size="1.50 MM")
+blocks = im.build_demand([(item, "CVD", "ADD ON"), (other, "CVD", "FRESH")])
+check("an add-on and a fresh demand on one design do not merge",
+      len(blocks) == 2
+      and {b.splitlines()[2] for b in blocks} == {"ADD ON", "FRESH"}, blocks)
+
+blocks = im.build_demand([(item, "CVD", "ADD ON"), (other, "HPHT", "ADD ON")])
+check("two qualities on one design do not merge", len(blocks) == 2, blocks)
+
 print()
 if FAILED:
     print(f"{len(FAILED)} FAILED: {', '.join(FAILED)}")

@@ -232,15 +232,16 @@ def classify(item, index):
 
 
 def build_demand(rows):
-    """Demand blocks with the quality line read per design, not assumed.
+    """Demand blocks from (item, quality, demand_type) triples.
 
-    Grouped by design + shape + quality. A design whose stones were issued partly
-    CVD and partly HPHT therefore yields two blocks, which is correct — they are
-    two different demands to the diamond department.
+    Grouped by design + shape + quality + type, so a design whose stones differ in
+    any of those yields separate blocks — they are separate demands to the diamond
+    department. The type line is per row because an add-on the Jangad shows as
+    already issued is re-raised as FRESH, not as another add-on.
     """
     blocks, order = {}, []
-    for item, quality in rows:
-        key = (item["design_no"], item["shape"], quality)
+    for item, quality, demand_type in rows:
+        key = (item["design_no"], item["shape"], quality, demand_type)
         if key not in blocks:
             blocks[key] = []
             order.append(key)
@@ -248,9 +249,9 @@ def build_demand(rows):
         if line not in blocks[key]:
             blocks[key].append(line)
     out = []
-    for design_no, shape, quality in order:
-        out.append("\n".join(["DIAMOND DEMAND", "", "ADD ON", quality, shape, ""]
-                              + blocks[(design_no, shape, quality)]
+    for design_no, shape, quality, demand_type in order:
+        out.append("\n".join(["DIAMOND DEMAND", "", demand_type, quality, shape, ""]
+                              + blocks[(design_no, shape, quality, demand_type)]
                               + ["", design_no]) + "\n")
     return out
 
@@ -285,6 +286,11 @@ def main():
     # visible in the demand rather than guessed at.
     unknown_label = next((a.split("=", 1)[1] for a in sys.argv[1:]
                           if a.startswith("--unknown-quality=")), None)
+    # An add-on the Jangad shows as already issued is dropped by default. Pass a
+    # label to demand it under that type instead: mfg asking again for a stone that
+    # was already issued is not a second add-on, it is a fresh requirement.
+    issued_as = next((a.split("=", 1)[1] for a in sys.argv[1:]
+                      if a.startswith("--issued-as=")), None)
     if len(args) < 2:
         sys.exit(__doc__)
     sys.argv = [sys.argv[0]] + args
@@ -303,15 +309,18 @@ def main():
 
     if demand_out:
         fresh = fresh_index(sys.argv[1])
+        pool = [(i, "ADD ON") for i, _ in verdicts["NEW"] + verdicts["DIFFERS"]]
+        if issued_as:
+            pool += [(i, issued_as) for i, _ in verdicts["ISSUED"]]
         seen, known, unknown = set(), [], []
-        for item, _ in verdicts["NEW"] + verdicts["DIFFERS"]:
-            key = (item["design_no"], item["shape"], item["size"])
+        for item, demand_type in pool:
+            key = (item["design_no"], item["shape"], item["size"], demand_type)
             if key in seen:                      # duplicate file in the drop
                 continue
             seen.add(key)
             q, basis = quality_for(item, fresh)
-            (known if q else unknown).append((item, q or basis))
-        rows_out = known + ([(i, unknown_label) for i, _ in unknown]
+            (known if q else unknown).append((item, q or basis, demand_type))
+        rows_out = known + ([(i, unknown_label, t) for i, _, t in unknown]
                             if unknown_label else [])
         blocks = build_demand(rows_out)
         with open(demand_out, "w") as fh:
@@ -322,8 +331,8 @@ def main():
                 if unknown_label else "LEFT OUT")
         print(f"-- {len(unknown)} row(s) have no readable CVD/HPHT and were {verb}:",
               file=sys.stderr)
-        for item, why in unknown:
-            print(f"   {item['design_no']} | {item['shape']} {item['size']} "
+        for item, why, t in unknown:
+            print(f"   [{t}] {item['design_no']} | {item['shape']} {item['size']} "
                   f"x{item['pcs']} | {why}", file=sys.stderr)
 
     for v in ("ISSUED", "DIFFERS", "NEW"):
