@@ -280,6 +280,11 @@ def main():
                  if a.startswith("--emit-ledger=")), None)
     demand_out = next((a.split("=", 1)[1] for a in sys.argv[1:]
                        if a.startswith("--emit-demand=")), None)
+    # Rows whose CVD/HPHT cannot be read are left out by default. Pass a label to
+    # include them instead, carrying that label on the quality line so the gap is
+    # visible in the demand rather than guessed at.
+    unknown_label = next((a.split("=", 1)[1] for a in sys.argv[1:]
+                          if a.startswith("--unknown-quality=")), None)
     if len(args) < 2:
         sys.exit(__doc__)
     sys.argv = [sys.argv[0]] + args
@@ -306,12 +311,16 @@ def main():
             seen.add(key)
             q, basis = quality_for(item, fresh)
             (known if q else unknown).append((item, q or basis))
-        blocks = build_demand(known)
+        rows_out = known + ([(i, unknown_label) for i, _ in unknown]
+                            if unknown_label else [])
+        blocks = build_demand(rows_out)
         with open(demand_out, "w") as fh:
             fh.write(f"\n{convert.SEPARATOR}\n\n".join(blocks))
-        print(f"-- wrote {len(blocks)} demand(s) from {len(known)} row(s) to "
+        print(f"-- wrote {len(blocks)} demand(s) from {len(rows_out)} row(s) to "
               f"{demand_out}", file=sys.stderr)
-        print(f"-- {len(unknown)} row(s) have no readable CVD/HPHT and were LEFT OUT:",
+        verb = (f'INCLUDED with the quality line "{unknown_label}"'
+                if unknown_label else "LEFT OUT")
+        print(f"-- {len(unknown)} row(s) have no readable CVD/HPHT and were {verb}:",
               file=sys.stderr)
         for item, why in unknown:
             print(f"   {item['design_no']} | {item['shape']} {item['size']} "

@@ -174,6 +174,19 @@ check("EMARLD is corrected to EMERALD", "EMERALD" in out and "EMARLD" not in out
 code, out, err = run([HEADER, req("D-1", "RND", "2.50x1.80 mm", "4")])
 check("size separator and unit are normalised", "2.50*1.80 MM - 4 PCS" in out, out)
 
+# A size can carry a qualifier after the unit: mfg writes "3.80 MM PINK" for a pink
+# diamond. Appending another unit to that produced "3.80 MM PINK MM".
+code, out, err = run([HEADER, req("D-1", "ROUND", "3.80 MM PINK", "2")])
+check("a qualifier after the unit is kept and not double-united",
+      "3.80 MM PINK - 2 PCS" in out and "PINK MM" not in out, out)
+
+code, out, err = run([HEADER, req("D-1", "ROUND", "8.00*4.00MM", "1")])
+check("a missing space before the unit is repaired",
+      "8.00*4.00 MM - 1 PCS" in out, out)
+
+code, out, err = run([HEADER, req("D-1", "ROUND", "3.00", "1")])
+check("a size with no unit gets one", "3.00 MM - 1 PCS" in out, out)
+
 code, out, err = run([HEADER, req("D-1", "WEIRDSHAPE", "3.00 MM", "1")])
 check("unknown shape passes through with a warning, never guessed",
       code == 0 and "WEIRDSHAPE" in out and "WARNING" in err, err)

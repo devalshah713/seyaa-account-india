@@ -135,12 +135,20 @@ def as_pcs(raw):
 
 
 def as_size(raw):
+    """Normalise a size. Digits and any trailing qualifier are never touched.
+
+    A size may carry a qualifier after the unit — mfg writes `3.80 MM PINK` for a
+    pink diamond. Appending another unit to that produced `3.80 MM PINK MM`, so the
+    unit is only added when the size carries none at all.
+    """
     size = re.sub(r"\s+", " ", str(raw)).strip().upper()
     size = size.replace("X", "*").replace("×", "*")
     size = re.sub(r"\s*\*\s*", "*", size)
-    if not size.endswith("MM"):
-        size = f"{size} MM"
-    return re.sub(r"\s*MM$", " MM", size)
+    if "MM" not in size:
+        return f"{size} MM"
+    if size.endswith("MM"):
+        return re.sub(r"\s*MM$", " MM", size)
+    return size
 
 
 def as_date(raw):

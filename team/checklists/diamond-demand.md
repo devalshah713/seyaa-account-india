@@ -223,6 +223,22 @@ happened by then.
 was *issued*; `--ledger diamond-demand/demands` (the default) excludes what was
 *demanded*. When Deval asks for what is not yet issued, it is the former.
 
+## Re-download the Jangad every run
+
+It changes daily. Between 2026-09-17 and 2026-09-21 it went from 12,657 rows / 413
+add-on rows to 12,874 / 472, and `S1667C` gained an add-on row in that window — a
+stale copy would have demanded a stone that had since been issued. **Never reuse a
+saved copy.** Pull it through the Drive connector, `stock-audit/decode.py` it, then
+match.
+
+## When the quality cannot be read
+
+Rows with no readable CVD/HPHT are **left out** by default. Pass
+`--unknown-quality="CVD/HPHT ?"` to include them instead, carrying that label on the
+quality line so the gap is visible in the demand rather than guessed at. Use that when
+Deval asks for every product in a file; leave the default when he wants only what is
+confirmed.
+
 ## Demand file naming
 
 `diamond-demand/demands/<REQ.DATE>-<party>-bag-<first bag number>.txt` — request date
