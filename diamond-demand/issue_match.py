@@ -281,11 +281,14 @@ def main():
                  if a.startswith("--emit-ledger=")), None)
     demand_out = next((a.split("=", 1)[1] for a in sys.argv[1:]
                        if a.startswith("--emit-demand=")), None)
-    # Rows whose CVD/HPHT cannot be read are left out by default. Pass a label to
-    # include them instead, carrying that label on the quality line so the gap is
-    # visible in the demand rather than guessed at.
-    unknown_label = next((a.split("=", 1)[1] for a in sys.argv[1:]
-                          if a.startswith("--unknown-quality=")), None)
+    # Rows whose CVD/HPHT cannot be read fall back to CVD — Deval, 2026-09-21:
+    # "Wherever you are confused make CVD as demand". The fallback is never silent:
+    # every such row is listed on stderr so it can be corrected. Pass
+    # --unknown-quality= (empty) to leave them out of the demand instead.
+    unknown_label = "CVD"
+    for a in sys.argv[1:]:
+        if a.startswith("--unknown-quality="):
+            unknown_label = a.split("=", 1)[1] or None
     # An add-on the Jangad shows as already issued is dropped by default. Pass a
     # label to demand it under that type instead: mfg asking again for a stone that
     # was already issued is not a second add-on, it is a fresh requirement.
@@ -327,10 +330,11 @@ def main():
             fh.write(f"\n{convert.SEPARATOR}\n\n".join(blocks))
         print(f"-- wrote {len(blocks)} demand(s) from {len(rows_out)} row(s) to "
               f"{demand_out}", file=sys.stderr)
-        verb = (f'INCLUDED with the quality line "{unknown_label}"'
-                if unknown_label else "LEFT OUT")
-        print(f"-- {len(unknown)} row(s) have no readable CVD/HPHT and were {verb}:",
-              file=sys.stderr)
+        verb = (f'FELL BACK to "{unknown_label}"' if unknown_label else "LEFT OUT")
+        if unknown:
+            print(f"-- {len(unknown)} row(s) have no readable CVD/HPHT in the Jangad "
+                  f"and {verb}. Correct them if the department knows better:",
+                  file=sys.stderr)
         for item, why, t in unknown:
             print(f"   [{t}] {item['design_no']} | {item['shape']} {item['size']} "
                   f"x{item['pcs']} | {why}", file=sys.stderr)

@@ -130,6 +130,13 @@ check("an add-on and a fresh demand on one design do not merge",
 blocks = im.build_demand([(item, "CVD", "ADD ON"), (other, "HPHT", "ADD ON")])
 check("two qualities on one design do not merge", len(blocks) == 2, blocks)
 
+# --- the CVD fallback is a labelled default, never a silent one --------------------
+blocks = im.build_demand([({"design_no": "D-9", "shape": "ROUND",
+                            "size": "1.00 MM", "pcs": "3"}, "CVD", "ADD ON")])
+check("a fallback row still renders a complete demand",
+      blocks[0].splitlines()[3] == "CVD" and blocks[0].rstrip().endswith("D-9"),
+      blocks[0])
+
 print()
 if FAILED:
     print(f"{len(FAILED)} FAILED: {', '.join(FAILED)}")

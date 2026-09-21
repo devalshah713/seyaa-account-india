@@ -247,13 +247,21 @@ design never merge.
 Without `--issued-as` the issued rows are still dropped, which is the right default
 when the question is "what is outstanding".
 
-## When the quality cannot be read
+## When the quality cannot be read — fall back to CVD, and say so
 
-Rows with no readable CVD/HPHT are **left out** by default. Pass
-`--unknown-quality="CVD/HPHT ?"` to include them instead, carrying that label on the
-quality line so the gap is visible in the demand rather than guessed at. Use that when
-Deval asks for every product in a file; leave the default when he wants only what is
-confirmed.
+Instructed by Deval on 2026-09-21: *"Wherever you are confused make CVD as demand."*
+So a row whose CVD/HPHT the Jangad cannot answer goes out as **CVD**. That is the
+default; `--unknown-quality=` (empty) leaves such rows out instead, and
+`--unknown-quality=<label>` puts any other label on the line.
+
+**The fallback is never silent.** Every row that fell back is listed on stderr with
+the reason, and those rows must be surfaced to Deval under the demand. The point of
+reading the Jangad at all is that CVD was wrong on 24 rows of the 2026-09-17 run — a
+fallback that nobody sees is that mistake coming back.
+
+A row falls back when the design has no **fresh** (non add-on) issue row at all, or
+when its fresh rows disagree on the quality. A design can have an add-on row and still
+have no fresh row — `S1667C` is exactly that.
 
 ## Demand file naming
 
