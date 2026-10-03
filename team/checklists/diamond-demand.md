@@ -223,6 +223,20 @@ happened by then.
 was *issued*; `--ledger diamond-demand/demands` (the default) excludes what was
 *demanded*. When Deval asks for what is not yet issued, it is the former.
 
+## Three things that defeat a design match — all were false negatives
+
+Each cost real matches before it was fixed, and each has tests.
+
+| The Jangad writes | mfg writes | Why it broke |
+|---|---|---|
+| sub `29.0` | sub `29` | It is a Google Sheet: the Sub Design No column exports as a **number**. An integer-only test rejected `29.0`, dropped the sub from the identity, and 13 of 14 rows on 2026-10-03 read "no fresh issue found" with the rows sitting right there. |
+| `SN-BR-TN-5CT-WG` + sub `90.0` | `SN-BR-TN-5CT-WG-73TO120`, sub `73 TO 120` | A request can cover a run of sub-designs in one row. `73 TO 120`, `73TO120` and `002-011` all read as ranges, capped at 60 apart. |
+| `STOCK NO. 1990 ( REPAIR )` | `1990` | A repair's stock number sits in free text, in brackets or after `STOCK NO.`. Both forms reduce to the bare number. |
+
+`as_int` and `range_of` in `issue_match.py` do this. **When a whole file comes back
+"no fresh issue found", disbelieve it and go look** — three times now that has been a
+matching gap, not an absent design.
+
 ## Re-download the Jangad every run
 
 It changes daily. Between 2026-09-17 and 2026-09-21 it went from 12,657 rows / 413

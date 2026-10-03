@@ -74,28 +74,49 @@ NOISE = {"WG", "YG", "PG", "9KT", "10KT", "14KT", "18KT", "22KT", "USA", "UK"}
 MAX_RANGE = 60          # "002-011" is a sub range; "1938-2007" is not
 
 
+def as_int(tok):
+    """'29' and '29.0' are the same sub number, None if it is not a number.
+
+    The Jangad is a Google Sheet and its Sub Design No column exports as a number:
+    sub 29 arrives as '29.0'. An integer-only test rejected those, so the sub was
+    dropped from the identity and 13 of the 14 rows in the 2026-10-03 request read
+    "no fresh issue found" when the issue rows were sitting right there.
+    """
+    m = re.fullmatch(r"(\d+)(?:\.0+)?", str(tok).strip())
+    return int(m.group(1)) if m else None
+
+
+def range_of(text):
+    """Sub numbers a range expression covers: '73 TO 120', '73TO120', '002-011'."""
+    m = re.fullmatch(r"(\d+)(?:\.0+)?\s*(?:TO|THRU|THROUGH|-)\s*(\d+)(?:\.0+)?",
+                     str(text).strip(), re.I)
+    if not m:
+        return set()
+    a, b = int(m.group(1)), int(m.group(2))
+    return set(range(a, b + 1)) if a < b <= a + MAX_RANGE else set()
+
+
 def parse_design(design):
-    """-> (base, [trailing numeric tokens]). Strips metal codes and brackets."""
+    """-> (base, [trailing sub numbers]). Strips metal codes and brackets."""
     d = clean(design).replace("(", "-").replace(")", "-")
     toks = [t for t in re.split(r"[-\s]+", d) if t]
     toks = [t for t in toks if t not in NOISE]
     nums = []
-    while len(toks) > 1 and re.fullmatch(r"\d+", toks[-1]):
-        nums.insert(0, toks.pop())
+    while len(toks) > 1 and as_int(toks[-1]) is not None:
+        nums.insert(0, as_int(toks.pop()))
     return "-".join(toks), nums
 
 
 def subs_of(nums):
-    """Sub-design numbers a design string covers.
+    """Sub-design numbers a run of trailing numbers covers.
 
     The Jangad records one row for a run of sub-designs: `SN-BR-SL-4CT-WG-002-011`
-    is subs 002 through 011, and `SN-BR-RD-3CT-YG-(001-006)` is 001 through 006.
-    Two ascending numbers a reasonable distance apart are read as that range.
+    is subs 2 through 11, `SN-BR-RD-3CT-YG-(001-006)` is 1 through 6. Two ascending
+    numbers a reasonable distance apart are read as that range.
     """
-    vals = [int(n) for n in nums]
-    if len(vals) == 2 and vals[0] < vals[1] <= vals[0] + MAX_RANGE:
-        return set(range(vals[0], vals[1] + 1))
-    return set(vals)
+    if len(nums) == 2 and nums[0] < nums[1] <= nums[0] + MAX_RANGE:
+        return set(range(nums[0], nums[1] + 1))
+    return set(nums)
 
 
 def identities(design, sub):
@@ -111,23 +132,36 @@ def identities(design, sub):
     if not raw:
         return out
 
-    # A repair row carries its stock code in brackets: "... (ST NO S1205C)"
-    for code in re.findall(r"\(([^)]*)\)", raw):
+    # A repair carries its stock number in brackets or after "STOCK NO.":
+    # "SN-RG-RAD-SL-WG-012  (ST NO S1205C)", "STOCK NO. 1990 ( REPAIR )".
+    bracketed = re.findall(r"\(([^)]*)\)", raw)
+    bracketed += re.findall(r"STOCK\s*NO\.?\s*([^(\s]+)", raw)
+    for code in bracketed:
         for tok in re.findall(r"[A-Z]*\d+[A-Z]*", code):
-            if len(tok) >= 4 and not re.fullmatch(r"\d{1,3}", tok):
+            if len(tok) >= 3 and not re.fullmatch(r"\d{1,2}", tok):
                 out.add(tok)
-    base, nums = parse_design(re.sub(r"\(ST\s*NO[^)]*\)", "", raw))
+    base, nums = parse_design(
+        re.sub(r"\(ST\s*NO[^)]*\)|STOCK\s*NO\.?", "", raw))
 
     subs = subs_of(nums)
-    s = clean(ADDON.sub("", sub or ""))
-    if re.fullmatch(r"\d+", s):
-        subs.add(int(s))
+    s_sub = clean(ADDON.sub("", sub or ""))
+    subs |= range_of(s_sub)
+    n = as_int(s_sub)
+    if n is not None:
+        subs.add(n)
 
-    out |= {f"{base}#{n}" for n in subs}
+    # A range can sit inside the design itself: "SN-BR-TN-5CT-WG-73TO120".
+    toks = [t for t in re.split(r"[-\s]+", base) if t]
+    for t in toks:
+        subs |= range_of(t)
+    stripped = "-".join(t for t in toks if not range_of(t))
+    base = stripped or base
+
+    out |= {f"{base}#{k}" for k in subs}
     if not subs:
         out.add(base)                      # no sub known anywhere
     if "-" not in base and base:
-        out.add(base)                      # a bare stock code: S1667C, S0020C, 1990
+        out.add(base)                      # a bare stock code: S1667C, 1990, 968
     return {i for i in out if i}
 
 

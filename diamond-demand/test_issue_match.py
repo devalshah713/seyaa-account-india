@@ -137,6 +137,35 @@ check("a fallback row still renders a complete demand",
       blocks[0].splitlines()[3] == "CVD" and blocks[0].rstrip().endswith("D-9"),
       blocks[0])
 
+# --- the Jangad exports sub numbers as floats --------------------------------------
+# Google Sheets renders Sub Design No as a number, so sub 29 arrives as '29.0'.
+# Rejecting those dropped the sub from the identity: 13 of 14 rows in the
+# 2026-10-03 request read "no fresh issue found" with the rows sitting right there.
+check("a float sub number equals its integer", im.as_int("29.0") == im.as_int("29") == 29)
+check("a non-number sub is not a number", im.as_int("REPAIRE") is None
+      and im.as_int("73 TO 120") is None)
+check("a float sub matches an integer sub",
+      overlap(("SN-BR-TN-15CT-YG", "29.0"), ("SN-BR-TN-15CT-YG-29", "29")))
+check("a float sub does not match a different sub",
+      not overlap(("SN-BR-TN-15CT-YG", "28.0"), ("SN-BR-TN-15CT-YG-29", "29")))
+
+# --- "73 TO 120" is a sub range ----------------------------------------------------
+check("a TO range covers its ends and middle",
+      im.range_of("73 TO 120") == set(range(73, 121))
+      and im.range_of("73TO120") == set(range(73, 121)))
+check("a TO range beyond the cap is not a range", im.range_of("1 TO 999") == set())
+check("plain text is not a range", im.range_of("REPAIRE") == set())
+check("a range inside the design matches a single sub in it",
+      overlap(("SN-BR-TN-5CT-WG-73TO120", "73 TO 120"), ("SN-BR-TN-5CT-WG", "90.0")))
+check("a range inside the design does not reach outside it",
+      not overlap(("SN-BR-TN-5CT-WG-73TO120", "73 TO 120"), ("SN-BR-TN-5CT-WG", "121.0")))
+
+# --- "STOCK NO. 1990 ( REPAIR )" ---------------------------------------------------
+check("a STOCK NO. repair matches the bare stock number",
+      overlap(("STOCK NO. 1990 ( REPAIR )", "ADD ON  1990"), ("1990", "REPAIRE")))
+check("a STOCK NO. repair does not match another stock number",
+      not overlap(("STOCK NO. 1990 ( REPAIR )", "ADD ON  1990"), ("968", "REPAIRE")))
+
 print()
 if FAILED:
     print(f"{len(FAILED)} FAILED: {', '.join(FAILED)}")
