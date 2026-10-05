@@ -239,12 +239,33 @@ def issued_addons(issue_xlsx):
     return index
 
 
-def request_rows(paths):
+def size_from_jangad(item, fresh):
+    """-> (size, basis) for a row where mfg left DIA SIZE blank.
+
+    The office's own issue record for that exact design, sub and shape is not a
+    guess. Used only when every such row agrees on one size; a disagreement or no
+    record returns nothing and the row stays out of the demand.
+    """
+    cands = [rec for ident in identities(item["design_no"], item["sub"])
+             for rec in fresh.get(ident, [])]
+    want = shape_key(item["shape"])
+    sizes = {rec["raw_size"] for rec in cands
+             if rec["shape"] == want and rec["raw_size"]}
+    if len(sizes) == 1:
+        size = sizes.pop()
+        row = next(r for r in cands if r["raw_size"] == size)
+        return convert.as_size(size), f"{row['sheet']} r{row['row']}"
+    if sizes:
+        return None, f"fresh issue disagrees on the size: {'/'.join(sorted(sizes))}"
+    return None, "no fresh issue found for this design"
+
+
+def request_rows(paths, keep_sizeless=False):
     for path in paths:
         rows = convert.read_sheet(path)
         hdr, colmap = convert.find_header(rows)
         sub_col = next((c for c, f in colmap.items() if f == "sub_design_no"), None)
-        items, _, _ = convert.collect(rows, hdr, colmap)
+        items, _, _ = convert.collect(rows, hdr, colmap, keep_sizeless=keep_sizeless)
         for it in items:
             it["file"] = os.path.basename(path)
             it["sub"] = rows.get(it["row"], {}).get(sub_col) if sub_col else None
@@ -332,11 +353,20 @@ def main():
         sys.exit(__doc__)
     sys.argv = [sys.argv[0]] + args
     index = issued_addons(sys.argv[1])
+    fresh_for_size = fresh_index(sys.argv[1]) if demand_out else {}
+    filled = []
     print(f"-- {len({id(r) for recs in index.values() for r in recs})} add-on rows "
           f"in the issue workbook, {len(index)} identities", file=sys.stderr)
 
     verdicts = {"ISSUED": [], "DIFFERS": [], "NEW": []}
-    for item in request_rows(sys.argv[2:]):
+    for item in request_rows(sys.argv[2:], keep_sizeless=bool(demand_out)):
+        if item["size"] is None:
+            size, basis = size_from_jangad(item, fresh_for_size)
+            if size is None:
+                filled.append((item, f"LEFT OUT — mfg left DIA SIZE blank, {basis}"))
+                continue
+            item["size"] = size
+            filled.append((item, f"size {size} read from the Jangad ({basis})"))
         v, rec = classify(item, index)
         verdicts[v].append((item, rec))
 
@@ -372,6 +402,10 @@ def main():
         for item, why, t in unknown:
             print(f"   [{t}] {item['design_no']} | {item['shape']} {item['size']} "
                   f"x{item['pcs']} | {why}", file=sys.stderr)
+
+    for item, why in filled:
+        print(f"-- BLANK SIZE: {item['design_no']} | {item['shape']} x{item['pcs']} "
+              f"| {why}", file=sys.stderr)
 
     for v in ("ISSUED", "DIFFERS", "NEW"):
         print(f"\n### {v} ({len(verdicts[v])})")

@@ -187,6 +187,15 @@ check("a missing space before the unit is repaired",
 code, out, err = run([HEADER, req("D-1", "ROUND", "3.00", "1")])
 check("a size with no unit gets one", "3.00 MM - 1 PCS" in out, out)
 
+# A weight class or a sieve range is not a millimetre size: "50PTS MM" is nonsense.
+code, out, err = run([HEADER, req("D-1", "EMERALD", "50PTS", "2")])
+check("a weight class does not get a millimetre unit",
+      "50PTS - 2 PCS" in out and "50PTS MM" not in out, out)
+
+code, out, err = run([HEADER, req("D-1", "ROUND", "+11-11.5", "4")])
+check("a sieve range does not get a millimetre unit",
+      "+11-11.5 - 4 PCS" in out and "11.5 MM" not in out, out)
+
 code, out, err = run([HEADER, req("D-1", "WEIRDSHAPE", "3.00 MM", "1")])
 check("unknown shape passes through with a warning, never guessed",
       code == 0 and "WEIRDSHAPE" in out and "WARNING" in err, err)

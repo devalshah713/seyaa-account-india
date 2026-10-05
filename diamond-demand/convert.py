@@ -145,7 +145,11 @@ def as_size(raw):
     size = size.replace("X", "*").replace("×", "*")
     size = re.sub(r"\s*\*\s*", "*", size)
     if "MM" not in size:
-        return f"{size} MM"
+        # Only a bare dimension gets the unit. A weight class (50PTS) or a sieve
+        # range (+11-11.5) is not a millimetre size and must not become "50PTS MM".
+        if re.fullmatch(r"[\d.*\s]+", size):
+            return f"{size} MM"
+        return size
     if size.endswith("MM"):
         return re.sub(r"\s*MM$", " MM", size)
     return size
@@ -159,7 +163,7 @@ def as_date(raw):
     return (datetime.date(1899, 12, 30) + datetime.timedelta(days=int(serial))).isoformat()
 
 
-def collect(rows, header_rn, colmap):
+def collect(rows, header_rn, colmap, keep_sizeless=False):
     """Read the request rows below the header.
 
     Manufacturing writes the design number **once** and leaves it blank on the further
@@ -191,7 +195,12 @@ def collect(rows, header_rn, colmap):
             carried = None
 
         missing = [f for f in REQUIRED if not rec.get(f)]
-        if missing:
+        # keep_sizeless keeps a row whose ONLY gap is the size, so a caller holding
+        # the Jangad can fill it from the office's own issue record for that stone.
+        # Mfg does leave DIA SIZE blank: every row of the 2026-10-05 file did.
+        if missing == ["size"] and keep_sizeless:
+            rec["size"] = None
+        elif missing:
             warnings.append(f"row {rn}: blank {', '.join(missing)} — row skipped, ask mfg")
             continue
 
@@ -207,7 +216,7 @@ def collect(rows, header_rn, colmap):
             "row": rn,
             "design_no": str(rec["design_no"]).strip(),
             "shape": shape,
-            "size": as_size(rec["size"]),
+            "size": as_size(rec["size"]) if rec["size"] else None,
             "pcs": as_pcs(rec["pcs"]),
             "bag": rec.get("bag"),
             "remark": rec.get("remark"),

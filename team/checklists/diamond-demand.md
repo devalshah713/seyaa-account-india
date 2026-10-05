@@ -237,6 +237,22 @@ Each cost real matches before it was fixed, and each has tests.
 "no fresh issue found", disbelieve it and go look** — three times now that has been a
 matching gap, not an absent design.
 
+## When mfg leaves DIA SIZE blank
+
+Every row of the 2026-10-05 file had an empty size column. A blank size normally
+means **ask mfg** and the row is skipped — never infer a size. The one exception:
+the office's own issue record for that **exact design, sub and shape** is not an
+inference, so `size_from_jangad()` fills it from there, only when every such row
+agrees on one size. A disagreement, or no record, and the row stays out.
+
+Every fill prints a `BLANK SIZE:` line naming the Jangad row it came from, and must
+be surfaced to Deval — the size is the one field he can check faster than we can.
+
+That file is also why a weight class never gets a millimetre unit: the Jangad records
+these as `50PTS`, and `as_size` was appending `MM` to produce `50PTS MM`. Only a bare
+dimension gets the unit; a weight (`50PTS`) or a sieve range (`+11-11.5`) is left as
+written.
+
 ## Re-download the Jangad every run
 
 It changes daily. Between 2026-09-17 and 2026-09-21 it went from 12,657 rows / 413
